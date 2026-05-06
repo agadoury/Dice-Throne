@@ -130,6 +130,8 @@ const UI = (function () {
 
     prevHp[playerKey] = player.hp;
 
+    setGuardBadge(playerKey, player.statuses.some(s => s.kind === 'guard' && s.amount > 0));
+
     const status = $(prefix + '-status');
     status.innerHTML = '';
     player.statuses.forEach(s => {
@@ -290,6 +292,106 @@ const UI = (function () {
     setTimeout(() => wrap.remove(), 600);
   }
 
+  // Position a popup near the defender, anchored toward the arena center.
+  function positionNearPortrait(targetKey, popup, offsetY = 0) {
+    const target = $('#' + targetKey + '-portrait');
+    const arenaRect = $('.arena').getBoundingClientRect();
+    if (!target) return;
+    const tRect = target.getBoundingClientRect();
+    const x = tRect.left + tRect.width / 2 - arenaRect.left;
+    const isOpponent = targetKey === 'p2';
+    // For opponent (top), pull popup down into the arena; for player (bottom), pull it up.
+    const y = isOpponent ? 36 + offsetY : arenaRect.height - 64 - offsetY;
+    popup.style.left = (x - 50) + 'px';
+    popup.style.top = y + 'px';
+    popup.style.width = '100px';
+    popup.style.alignItems = 'center';
+    popup.style.transform = 'translateX(0)';
+  }
+
+  // Show the auto-rolled defense dice with their values and which ones blocked.
+  function showDefenseDice(targetKey, rolls, opts = {}) {
+    const root = $('#floating-fx');
+    if (!root) return;
+    const popup = document.createElement('div');
+    popup.className = 'defense-popup';
+    positionNearPortrait(targetKey, popup);
+
+    const row = document.createElement('div');
+    row.className = 'def-row';
+    rolls.forEach((v, i) => {
+      const die = document.createElement('div');
+      die.className = 'def-die ' + (v >= 4 ? 'block' : 'fail');
+      die.textContent = v;
+      die.style.setProperty('--def-delay', (i * 0.08).toFixed(2) + 's');
+      die.style.setProperty('--def-pulse-delay', (0.55 + i * 0.08).toFixed(2) + 's');
+      row.appendChild(die);
+    });
+
+    const label = document.createElement('div');
+    const blocked = rolls.filter(v => v >= 4).length;
+    if (opts.guardBlocked) {
+      label.className = 'def-label blocked';
+      label.textContent = `🛡 GUARD ${opts.guardBlocked}` + (blocked > 0 ? ` · DEF ${blocked}` : '');
+    } else if (blocked > 0) {
+      label.className = 'def-label blocked';
+      label.textContent = `🛡 BLOCKED ${blocked}`;
+    } else {
+      label.className = 'def-label failed';
+      label.textContent = '✗ NO BLOCK';
+    }
+
+    popup.appendChild(row);
+    popup.appendChild(label);
+    root.appendChild(popup);
+    setTimeout(() => popup.remove(), 1900);
+  }
+
+  // Pop up a guard-shield badge above the defender (used when guard absorbs).
+  function showGuardAbsorb(targetKey, amount) {
+    const root = $('#floating-fx');
+    const target = $('#' + targetKey + '-portrait');
+    if (!root || !target) return;
+    const arenaRect = $('.arena').getBoundingClientRect();
+    const tRect = target.getBoundingClientRect();
+    const x = tRect.left + tRect.width / 2 - arenaRect.left;
+    const isOpponent = targetKey === 'p2';
+    const y = isOpponent ? 56 : arenaRect.height - 72;
+    const el = document.createElement('div');
+    el.className = 'guard-shield';
+    el.textContent = `🛡 ABSORB ${amount}`;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    root.appendChild(el);
+    setTimeout(() => el.remove(), 1300);
+  }
+
+  // Pop up a "PIERCE — UNDEFENDABLE" tag at the defender for piercing attacks.
+  function showPierce(targetKey) {
+    const root = $('#floating-fx');
+    const target = $('#' + targetKey + '-portrait');
+    if (!root || !target) return;
+    const arenaRect = $('.arena').getBoundingClientRect();
+    const tRect = target.getBoundingClientRect();
+    const x = tRect.left + tRect.width / 2 - arenaRect.left;
+    const isOpponent = targetKey === 'p2';
+    const y = isOpponent ? 56 : arenaRect.height - 72;
+    const el = document.createElement('div');
+    el.className = 'pierce-mark';
+    el.textContent = '✦ PIERCE';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    root.appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+  }
+
+  // Toggle the persistent guard badge on the defender's avatar.
+  function setGuardBadge(targetKey, on) {
+    const avatar = $('#bar-' + targetKey + ' .avatar');
+    if (!avatar) return;
+    avatar.classList.toggle('guarded', !!on);
+  }
+
   // Spell projectile flying from caster portrait to target portrait.
   function projectile(fromKey, toKey, glyph = '✦', color = '#ffcc4d') {
     const root = $('#floating-fx');
@@ -353,6 +455,7 @@ const UI = (function () {
     renderAbilities, log, floatNumber, flashHit, showBanner, spawnConfetti,
     animateAttack, animateRecoil, animateDodge, animateHeal,
     shakeArena, flashVignette, impactEffect, projectile,
+    showDefenseDice, showGuardAbsorb, showPierce, setGuardBadge,
   };
 })();
 

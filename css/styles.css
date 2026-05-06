@@ -872,6 +872,164 @@ html, body {
   100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
 }
 
+/* Defense dice popup — shown at defender during incoming attack */
+.defense-popup {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  animation: defPopIn 0.35s cubic-bezier(.36,.07,.19,1.4) both,
+             defPopOut 0.4s 1.4s forwards;
+}
+.defense-popup .def-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(0,0,0,0.85);
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.6);
+}
+.defense-popup .def-label.blocked { color: #6cf09a; }
+.defense-popup .def-label.failed  { color: #ff7a8a; }
+.defense-popup .def-label.pierce  { color: #d8b8ff; }
+.defense-popup .def-row {
+  display: flex;
+  gap: 5px;
+}
+.def-die {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #fff, #d8d8e8);
+  color: #1a1a2e;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.7);
+  animation: defDieRoll 0.55s cubic-bezier(.36,.07,.19,1) both;
+  animation-delay: var(--def-delay, 0s);
+  position: relative;
+}
+.def-die.block {
+  background: linear-gradient(180deg, #6cf09a, #22c55e);
+  color: #052c14;
+  box-shadow: 0 0 14px rgba(74,222,128,0.7), inset 0 1px 0 rgba(255,255,255,0.5);
+  animation: defDieRoll 0.55s cubic-bezier(.36,.07,.19,1) both,
+             defDieBlockPulse 0.45s var(--def-pulse-delay, 0.55s) ease both;
+}
+.def-die.fail {
+  background: linear-gradient(180deg, #555, #333);
+  color: #b0b0b0;
+  opacity: 0.6;
+  filter: saturate(0.5);
+}
+.def-die.block::after {
+  content: '✓';
+  position: absolute;
+  top: -6px; right: -6px;
+  font-size: 0.62rem;
+  width: 14px; height: 14px;
+  background: #fff;
+  color: #16a34a;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 900;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+@keyframes defDieRoll {
+  0%   { transform: translateY(-14px) rotate(0deg) scale(0.5); opacity: 0; }
+  60%  { transform: translateY(0) rotate(360deg) scale(1.1); opacity: 1; }
+  100% { transform: translateY(0) rotate(360deg) scale(1); opacity: 1; }
+}
+@keyframes defDieBlockPulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.3); box-shadow: 0 0 22px rgba(74,222,128,1), inset 0 1px 0 rgba(255,255,255,0.6); }
+  100% { transform: scale(1); }
+}
+@keyframes defPopIn {
+  from { transform: translateY(8px) scale(0.85); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes defPopOut {
+  to   { transform: translateY(-6px) scale(0.95); opacity: 0; }
+}
+
+/* Guard shield badge — when persistent Guard status absorbs damage */
+.guard-shield {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+  font-size: 0.95rem;
+  font-weight: 900;
+  background: linear-gradient(180deg, #4cc9f0, #0f7eaa);
+  color: #fff;
+  border: 1px solid #b5e7ff;
+  border-radius: 999px;
+  padding: 4px 12px;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  box-shadow: 0 0 18px rgba(76,201,240,0.7), inset 0 1px 0 rgba(255,255,255,0.3);
+  animation: guardPop 1.2s cubic-bezier(.36,.07,.19,1.4) forwards;
+}
+@keyframes guardPop {
+  0%   { transform: translate(-50%, 4px) scale(0.4) rotate(-8deg); opacity: 0; }
+  20%  { transform: translate(-50%, -12px) scale(1.25) rotate(4deg); opacity: 1; }
+  35%  { transform: translate(-50%, -16px) scale(1) rotate(0); opacity: 1; }
+  100% { transform: translate(-50%, -42px) scale(0.9); opacity: 0; }
+}
+
+/* Persistent shimmer when defender has Guard status */
+.player-bar .avatar.guarded::before {
+  content: '🛡';
+  position: absolute;
+  top: -8px; right: -8px;
+  width: 22px; height: 22px;
+  background: linear-gradient(180deg, #4cc9f0, #0f7eaa);
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 0.85rem;
+  border: 2px solid #0d0518;
+  z-index: 2;
+  box-shadow: 0 0 12px rgba(76,201,240,0.7);
+  animation: guardSpin 4s linear infinite;
+}
+@keyframes guardSpin {
+  0%   { transform: rotate(0); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Pierce indicator — undefendable attacks bypass defense */
+.pierce-mark {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  background: linear-gradient(180deg, #c084fc, #7e22ce);
+  color: #fff;
+  border: 1px solid #d8b8ff;
+  border-radius: 4px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  box-shadow: 0 0 14px rgba(168,85,247,0.7);
+  animation: pierceIn 1.4s ease forwards;
+}
+@keyframes pierceIn {
+  0%   { transform: translate(-50%, 8px) scale(0.4); opacity: 0; }
+  18%  { transform: translate(-50%, -8px) scale(1.15); opacity: 1; }
+  60%  { transform: translate(-50%, -12px) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -28px) scale(0.95); opacity: 0; }
+}
+
 /* Projectile that flies between portraits */
 .projectile {
   position: absolute;

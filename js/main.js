@@ -386,8 +386,11 @@
       defender.statuses = defender.statuses.filter(s => s.kind !== 'mark');
     }
 
-    // Defense
+    // Defense — resolve mechanics, but defer the visuals so they appear *during* the attack travel
     let dodged = false;
+    let guardAbsorbed = 0;
+    let defRolls = null;
+    let defBlocked = 0;
     if (dmg > 0) {
       const dodge = defender.statuses.find(s => s.kind === 'dodge');
       if (dodge && Math.random() < 0.5) {
@@ -398,28 +401,56 @@
       } else if (!ability.undefendable) {
         const guard = defender.statuses.find(s => s.kind === 'guard');
         if (guard) {
-          const blocked = Math.min(dmg, guard.amount);
-          dmg -= blocked;
-          guard.amount -= blocked;
+          guardAbsorbed = Math.min(dmg, guard.amount);
+          dmg -= guardAbsorbed;
+          guard.amount -= guardAbsorbed;
           if (guard.amount <= 0) defender.statuses = defender.statuses.filter(s => s !== guard);
-          UI.log(`🛡 Guard blocks ${blocked}`, 'crit');
+          UI.log(`🛡 Guard absorbs ${guardAbsorbed}`, 'crit');
         }
-        const defRolls = [rollDie(), rollDie(), rollDie()];
-        const blocked2 = defRolls.filter(v => v >= 4).length;
-        if (blocked2 > 0) {
-          dmg = Math.max(0, dmg - blocked2);
-          UI.log(`<b>${defender.name}</b> defends [${defRolls.join(', ')}] — blocks ${blocked2}`);
+        // Only roll defense dice if there's still incoming damage to defend
+        if (dmg > 0) {
+          defRolls = [rollDie(), rollDie(), rollDie()];
+          defBlocked = defRolls.filter(v => v >= 4).length;
+          const actuallyBlocked = Math.min(dmg, defBlocked);
+          dmg = Math.max(0, dmg - defBlocked);
+          if (actuallyBlocked > 0) {
+            UI.log(`<b>${defender.name}</b> defends [${defRolls.join(', ')}] — blocks ${actuallyBlocked}`);
+          } else {
+            UI.log(`<b>${defender.name}</b> defends [${defRolls.join(', ')}] — no blocks`);
+          }
         }
+      } else {
+        // Undefendable strike — show the pierce indicator
+        UI.log(`✦ Undefendable!`, 'crit');
       }
     }
 
-    // 3) Travel: projectile or slash, then 4) impact
-    const projectileMs = 280;
+    // 3) Travel: projectile or slash, plus defensive visuals shown during travel
     const projDef = PROJECTILE_HEROES[attacker.hero.id];
-    if ((ability.dmg || 0) > 0 && projDef) {
+    const hasProjectile = (ability.dmg || 0) > 0 && projDef;
+
+    if (hasProjectile) {
       setTimeout(() => UI.projectile(aKey, dKey, projDef.glyph, projDef.color), 200);
     }
 
+    // Stage defensive visuals at the defender ~halfway through travel
+    if (ability.dmg > 0) {
+      if (dodged) {
+        // Dodge visual happens with impact below
+      } else if (ability.undefendable) {
+        setTimeout(() => UI.showPierce(dKey), 250);
+      } else if (defRolls) {
+        setTimeout(() => UI.showDefenseDice(dKey, defRolls, { guardBlocked: guardAbsorbed }), 220);
+      } else if (guardAbsorbed > 0) {
+        setTimeout(() => UI.showGuardAbsorb(dKey, guardAbsorbed), 250);
+      }
+    }
+
+    // Sync persistent guard badge on the defender's avatar after possible consumption
+    UI.setGuardBadge(dKey, defender.statuses.some(s => s.kind === 'guard' && s.amount > 0));
+
+    // 4) Impact (delayed enough for defense dice to be readable)
+    const impactDelay = ability.dmg > 0 && !dodged ? 1100 : 600;
     setTimeout(() => {
       // Impact: slash/burst/dodge
       if (dodged) {
@@ -452,8 +483,8 @@
       UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
       UI.renderDiceTray(Game.dice, { canLock: false });
       UI.$('#rolls-left').textContent = 0;
-      setTimeout(endTurn, 1100);
-    }, projectileMs + ((ability.dmg || 0) > 0 && projDef ? 200 : 100));
+      setTimeout(endTurn, 1000);
+    }, impactDelay);
   }
 
   // ===== End turn =====
