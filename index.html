@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0716" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>Dice Throne — Arena of Champions</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ====== MAIN MENU ====== -->
+  <section id="screen-menu" class="screen active">
+    <div class="bg-particles" aria-hidden="true"></div>
+    <header class="menu-header">
+      <h1 class="logo"><span>DICE</span><span class="logo-accent">THRONE</span></h1>
+      <p class="tagline">Arena of Champions</p>
+    </header>
+    <div class="menu-buttons">
+      <button class="btn btn-primary" data-action="play-ai">
+        <span class="btn-icon">⚔</span>
+        <span class="btn-label">Quick Match <small>vs AI</small></span>
+      </button>
+      <button class="btn btn-secondary" data-action="play-local">
+        <span class="btn-icon">👥</span>
+        <span class="btn-label">Pass &amp; Play</span>
+      </button>
+      <button class="btn btn-secondary" data-action="online">
+        <span class="btn-icon">🌐</span>
+        <span class="btn-label">Online <small>matchmaking</small></span>
+      </button>
+      <button class="btn btn-ghost" data-action="how-to">
+        <span class="btn-icon">❔</span>
+        <span class="btn-label">How to Play</span>
+      </button>
+    </div>
+    <footer class="menu-footer">
+      <span id="server-status"><span class="dot live"></span> Servers Online</span>
+      <span id="players-online">— players in arena</span>
+    </footer>
+  </section>
+
+  <!-- ====== HERO SELECT ====== -->
+  <section id="screen-select" class="screen">
+    <header class="select-header">
+      <button class="btn-back" data-action="back-to-menu">‹ Back</button>
+      <h2 id="select-title">Choose Your Champion</h2>
+      <span id="select-step">Player 1</span>
+    </header>
+    <div class="hero-grid" id="hero-grid"></div>
+    <div class="hero-detail" id="hero-detail">
+      <div class="hero-portrait-wrap">
+        <div class="hero-portrait" id="hero-portrait"></div>
+      </div>
+      <div class="hero-info">
+        <h3 id="hero-name">—</h3>
+        <p id="hero-tagline" class="hero-tagline">Select a hero</p>
+        <div class="hero-stats">
+          <span class="stat"><b>HP</b> <i id="hero-hp">—</i></span>
+          <span class="stat"><b>Style</b> <i id="hero-style">—</i></span>
+          <span class="stat"><b>Difficulty</b> <i id="hero-diff">—</i></span>
+        </div>
+        <ul id="hero-abilities" class="hero-abilities"></ul>
+        <button class="btn btn-primary btn-confirm" id="btn-confirm-hero" disabled>Confirm Champion</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== MATCHMAKING ====== -->
+  <section id="screen-matchmaking" class="screen">
+    <div class="mm-card">
+      <div class="mm-spinner"></div>
+      <h2>Searching the Arena…</h2>
+      <p id="mm-status">Connecting to the throne servers</p>
+      <button class="btn btn-ghost" data-action="cancel-mm">Cancel</button>
+    </div>
+  </section>
+
+  <!-- ====== BATTLE ====== -->
+  <section id="screen-battle" class="screen">
+    <!-- Top: opponent -->
+    <div class="player-bar opponent" id="bar-p2">
+      <div class="avatar"><div class="portrait" id="p2-portrait"></div></div>
+      <div class="player-info">
+        <div class="player-row">
+          <span class="player-name" id="p2-name">—</span>
+          <span class="hp-text"><span id="p2-hp">50</span>/<span id="p2-max">50</span></span>
+        </div>
+        <div class="hp-bar"><div class="hp-fill" id="p2-hp-fill"></div></div>
+        <div class="status-icons" id="p2-status"></div>
+      </div>
+    </div>
+
+    <!-- Center: arena -->
+    <div class="arena">
+      <div class="arena-bg"></div>
+      <div class="turn-banner" id="turn-banner"><span></span></div>
+      <div class="combat-log" id="combat-log" aria-live="polite"></div>
+      <div class="floating-fx" id="floating-fx"></div>
+    </div>
+
+    <!-- Dice + Actions -->
+    <div class="action-zone">
+      <div class="dice-tray" id="dice-tray"></div>
+      <div class="roll-controls">
+        <span class="rolls-left">Rolls: <b id="rolls-left">3</b></span>
+        <button class="btn btn-roll" id="btn-roll">Roll Dice</button>
+        <button class="btn btn-end" id="btn-end-turn">End Turn</button>
+      </div>
+      <div class="abilities" id="abilities"></div>
+    </div>
+
+    <!-- Bottom: you -->
+    <div class="player-bar you" id="bar-p1">
+      <div class="avatar"><div class="portrait" id="p1-portrait"></div></div>
+      <div class="player-info">
+        <div class="player-row">
+          <span class="player-name" id="p1-name">—</span>
+          <span class="hp-text"><span id="p1-hp">50</span>/<span id="p1-max">50</span></span>
+        </div>
+        <div class="hp-bar"><div class="hp-fill" id="p1-hp-fill"></div></div>
+        <div class="status-icons" id="p1-status"></div>
+      </div>
+    </div>
+
+    <button class="btn-quit" data-action="quit-battle" aria-label="Quit">✕</button>
+  </section>
+
+  <!-- ====== END SCREEN ====== -->
+  <section id="screen-end" class="screen">
+    <div class="end-card">
+      <h1 id="end-title">VICTORY</h1>
+      <p id="end-sub">You crushed your foe!</p>
+      <div class="end-portrait" id="end-portrait"></div>
+      <div class="end-stats" id="end-stats"></div>
+      <div class="end-buttons">
+        <button class="btn btn-primary" data-action="rematch">Rematch</button>
+        <button class="btn btn-secondary" data-action="back-to-menu">Main Menu</button>
+      </div>
+    </div>
+    <div class="confetti" id="confetti"></div>
+  </section>
+
+  <!-- ====== HOW TO PLAY ====== -->
+  <section id="screen-howto" class="screen">
+    <header class="select-header">
+      <button class="btn-back" data-action="back-to-menu">‹ Back</button>
+      <h2>How to Play</h2>
+      <span></span>
+    </header>
+    <div class="howto-content">
+      <h3>The Throne Awaits</h3>
+      <p>Two champions enter the arena. Reduce your opponent's <b>HP</b> to 0 to claim the throne.</p>
+      <h3>Your Turn</h3>
+      <ol>
+        <li>Tap <b>Roll Dice</b> to roll all 5 dice.</li>
+        <li>Tap dice to <b>keep</b> them, then re-roll the rest. You get up to <b>3 rolls</b>.</li>
+        <li>Available <b>abilities</b> light up based on your dice combo. Tap one to unleash it.</li>
+        <li>Tap <b>End Turn</b> to pass the dice to your foe.</li>
+      </ol>
+      <h3>Combos</h3>
+      <ul class="combo-list">
+        <li><b>Pair</b> — two of the same.</li>
+        <li><b>Two Pair</b> — two pairs.</li>
+        <li><b>Three of a Kind</b></li>
+        <li><b>Straight</b> — 1-2-3-4-5 or 2-3-4-5-6.</li>
+        <li><b>Full House</b> — three + two.</li>
+        <li><b>Four of a Kind</b></li>
+        <li><b>Five of a Kind</b> — the legendary roll.</li>
+      </ul>
+      <h3>Defense &amp; Status</h3>
+      <p>When struck, defenders auto-roll three guard dice — every <b>4+</b> blocks 1 damage. Some abilities are <b>undefendable</b>. Watch for status effects: <b>🔥 Burn</b> ticks at turn start, <b>☠ Poison</b> compounds, <b>🛡 Guard</b> reduces incoming damage, and <b>⚡ Charge</b> empowers your next strike.</p>
+    </div>
+  </section>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+</div>
+
+<script src="js/audio.js"></script>
+<script src="js/heroes.js"></script>
+<script src="js/dice.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
