@@ -56,7 +56,9 @@
     Game.p1 = null;
     Game.p2 = null;
     UI.$('#select-title').textContent = 'Choose Your Champion';
-    UI.$('#select-step').textContent = mode === 'local' ? 'Player 1' : '';
+    const stepLabel = mode === 'local' ? 'Player 1' :
+                      mode === 'online' ? 'Ranked' : 'vs AI';
+    UI.$('#select-step').textContent = stepLabel;
     renderHeroGrid();
     UI.showScreen('screen-select');
   }
@@ -67,10 +69,10 @@
     HEROES.forEach(h => {
       const card = document.createElement('button');
       card.className = 'hero-card';
+      card.style.setProperty('--card-color', h.color + '55');
       const taken = (Game.selecting === 'p2' && Game.mode === 'local' && Game.p1?.hero.id === h.id);
       if (taken) card.classList.add('taken');
       if (Game.selectedHeroId === h.id) card.classList.add('selected');
-      card.style.borderColor = Game.selectedHeroId === h.id ? '' : 'rgba(255,255,255,0.08)';
       card.innerHTML = `
         <div class="glyph" style="color:${h.color}">${h.glyph}</div>
         <div class="label">${h.name}</div>
@@ -204,6 +206,7 @@
     Game.turnNumber = 1;
     Game.stats = { abilitiesUsed: 0, totalDamage: 0, biggestHit: 0, turnsPlayed: 0 };
     UI.$('#combat-log').innerHTML = '';
+    UI.resetHpTracking();
     UI.showScreen('screen-battle');
     UI.updatePlayerBar('p1', Game.p1);
     UI.updatePlayerBar('p2', Game.p2);
@@ -247,25 +250,31 @@
 
   function tickStatusesAtTurnStart(p) {
     const remaining = [];
+    let tickedAny = false;
     for (const s of p.statuses) {
       if (s.kind === 'burn') {
         const dmg = s.amount;
         p.hp -= dmg;
         UI.log(`<b>${p.name}</b> takes ${dmg} burn 🔥`);
         UI.floatNumber(playerKey(p), '🔥' + dmg, 'dmg');
+        UI.flashHit(playerKey(p));
         GameAudio.status();
+        tickedAny = true;
       } else if (s.kind === 'poison') {
         const dmg = s.amount;
         p.hp -= dmg;
         UI.log(`<b>${p.name}</b> takes ${dmg} poison ☠`);
         UI.floatNumber(playerKey(p), '☠' + dmg, 'dmg');
+        UI.flashHit(playerKey(p));
         GameAudio.status();
+        tickedAny = true;
       }
       s.turns -= 1;
       if (s.turns > 0) remaining.push(s);
     }
     p.statuses = remaining;
     UI.updatePlayerBar(playerKey(p), p);
+    if (tickedAny) UI.shakeArena(false);
   }
 
   function playerKey(p) { return p === Game.p1 ? 'p1' : 'p2'; }
@@ -304,12 +313,14 @@
   function toggleLock(idx) {
     if (Game.dice.values[idx] === 0) return;
     if (Game.dice.rollsLeft <= 0) return;
-    Game.dice.locked[idx] = !Game.dice.locked[idx];
+    const wasLocked = Game.dice.locked[idx];
+    Game.dice.locked[idx] = !wasLocked;
     GameAudio.diceLock();
     UI.renderDiceTray(Game.dice, {
       canLock: true,
       onClick: toggleLock,
     });
+    if (!wasLocked) UI.animateLockPulse(idx);
   }
 
   function onAbilityClick(idx) {
@@ -320,12 +331,27 @@
     useAbility(activePlayer(), inactivePlayer(), a);
   }
 
+  // Heroes that "throw" magical projectiles vs. melee slash visualization.
+  const PROJECTILE_HEROES = {
+    'pyromancer':   { glyph: '🔥', color: '#ff6b3d' },
+    'moon-elf':     { glyph: '➹',  color: '#b6e2ff' },
+    'shadow-thief': { glyph: '🗡', color: '#d8b8ff' },
+    'paladin':      { glyph: '✦',  color: '#ffe28a' },
+  };
+
   // ===== Combat resolution =====
   function useAbility(attacker, defender, ability) {
     Game.stats.abilitiesUsed++;
-    GameAudio.abilityCast(['four','five','full-house','straight'].includes(ability.combo));
+    const heavy = ['four','five','full-house','straight'].includes(ability.combo);
+    GameAudio.abilityCast(heavy);
     UI.log(`<b>${attacker.name}</b> uses <b>${ability.name}</b>!`, attacker === Game.p1 ? 'you' : 'foe');
 
+    // 1) Caster lunges
+    const aKey = playerKey(attacker);
+    const dKey = playerKey(defender);
+    UI.animateAttack(aKey, dKey);
+
+    // 2) Apply self-effects up front (heal, charge, etc) — show heal aura
     const ctx = { bonusDamage: 0 };
     const hpBefore = attacker.hp;
     if (ability.apply) {
@@ -333,8 +359,12 @@
     }
     const healed = attacker.hp - hpBefore;
     if (healed > 0) {
-      UI.floatNumber(playerKey(attacker), '+' + healed, 'heal');
-      GameAudio.heal();
+      setTimeout(() => {
+        UI.floatNumber(aKey, '+' + healed, 'heal');
+        UI.animateHeal(aKey);
+        UI.flashVignette('heal');
+        GameAudio.heal();
+      }, 220);
       UI.log(`<b>${attacker.name}</b> restores ${healed} HP`, 'crit');
     }
 
@@ -356,14 +386,14 @@
       defender.statuses = defender.statuses.filter(s => s.kind !== 'mark');
     }
 
-    // Defense if attacker dealt damage and ability is defendable
+    // Defense
+    let dodged = false;
     if (dmg > 0) {
       const dodge = defender.statuses.find(s => s.kind === 'dodge');
       if (dodge && Math.random() < 0.5) {
         UI.log(`💨 <b>${defender.name}</b> dodges!`, 'crit');
-        UI.floatNumber(playerKey(defender), 'DODGE', 'miss');
-        GameAudio.miss();
         defender.statuses = defender.statuses.filter(s => s.kind !== 'dodge');
+        dodged = true;
         dmg = 0;
       } else if (!ability.undefendable) {
         const guard = defender.statuses.find(s => s.kind === 'guard');
@@ -374,7 +404,6 @@
           if (guard.amount <= 0) defender.statuses = defender.statuses.filter(s => s !== guard);
           UI.log(`🛡 Guard blocks ${blocked}`, 'crit');
         }
-        // Auto-roll defense dice (3 dice; 4+ blocks 1 each)
         const defRolls = [rollDie(), rollDie(), rollDie()];
         const blocked2 = defRolls.filter(v => v >= 4).length;
         if (blocked2 > 0) {
@@ -384,33 +413,47 @@
       }
     }
 
-    // Apply damage
-    if (dmg > 0) {
-      defender.hp -= dmg;
-      Game.stats.totalDamage += (attacker === Game.p1 ? dmg : 0);
-      Game.stats.biggestHit = Math.max(Game.stats.biggestHit, dmg);
-      UI.flashHit(playerKey(defender));
-      UI.floatNumber(playerKey(defender), '-' + dmg, dmg >= 8 ? 'crit' : 'dmg');
-      if (dmg >= 8) GameAudio.crit(); else GameAudio.hit(dmg >= 5);
-      UI.log(`<b>${defender.name}</b> takes ${dmg} damage`, 'foe');
-    } else if (ability.dmg && !ability.heal) {
-      UI.floatNumber(playerKey(defender), 'BLOCKED', 'miss');
+    // 3) Travel: projectile or slash, then 4) impact
+    const projectileMs = 280;
+    const projDef = PROJECTILE_HEROES[attacker.hero.id];
+    if ((ability.dmg || 0) > 0 && projDef) {
+      setTimeout(() => UI.projectile(aKey, dKey, projDef.glyph, projDef.color), 200);
     }
 
-    // Heal float for self-heal abilities (detect HP increase via apply)
-    UI.updatePlayerBar('p1', Game.p1);
-    UI.updatePlayerBar('p2', Game.p2);
+    setTimeout(() => {
+      // Impact: slash/burst/dodge
+      if (dodged) {
+        UI.animateDodge(dKey);
+        UI.floatNumber(dKey, 'DODGE', 'miss');
+        GameAudio.miss();
+      } else if (dmg > 0) {
+        UI.impactEffect(dmg >= 8 ? 'burst' : 'slash');
+        UI.flashHit(dKey);
+        UI.animateRecoil(dKey);
+        UI.shakeArena(dmg >= 8);
+        if (dmg >= 8) UI.flashVignette('crit');
+        defender.hp -= dmg;
+        Game.stats.totalDamage += (attacker === Game.p1 ? dmg : 0);
+        Game.stats.biggestHit = Math.max(Game.stats.biggestHit, dmg);
+        UI.floatNumber(dKey, '-' + dmg, dmg >= 8 ? 'crit' : 'dmg');
+        if (dmg >= 8) GameAudio.crit(); else GameAudio.hit(dmg >= 5);
+        UI.log(`<b>${defender.name}</b> takes ${dmg} damage`, 'foe');
+      } else if (ability.dmg) {
+        UI.floatNumber(dKey, 'BLOCKED', 'miss');
+        GameAudio.miss();
+      }
+      UI.updatePlayerBar('p1', Game.p1);
+      UI.updatePlayerBar('p2', Game.p2);
 
-    if (checkWinner()) return;
+      if (checkWinner()) return;
 
-    // After ability, attacker can either roll again only if rolls remain & no damage spent? In Dice Throne main attacks end roll phase.
-    Game.dice.rollsLeft = 0;
-    Game.triggers = new Set();
-    UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
-    UI.renderDiceTray(Game.dice, { canLock: false });
-    UI.$('#rolls-left').textContent = 0;
-
-    setTimeout(endTurn, 900);
+      Game.dice.rollsLeft = 0;
+      Game.triggers = new Set();
+      UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
+      UI.renderDiceTray(Game.dice, { canLock: false });
+      UI.$('#rolls-left').textContent = 0;
+      setTimeout(endTurn, 1100);
+    }, projectileMs + ((ability.dmg || 0) > 0 && projDef ? 200 : 100));
   }
 
   // ===== End turn =====

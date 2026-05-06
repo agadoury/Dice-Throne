@@ -22,19 +22,19 @@
     <div class="menu-buttons">
       <button class="btn btn-primary" data-action="play-ai">
         <span class="btn-icon">⚔</span>
-        <span class="btn-label">Quick Match <small>vs AI</small></span>
+        <span class="btn-label"><span>Quick Match</span><small>Duel an AI champion</small></span>
       </button>
       <button class="btn btn-secondary" data-action="play-local">
         <span class="btn-icon">👥</span>
-        <span class="btn-label">Pass &amp; Play</span>
+        <span class="btn-label"><span>Pass &amp; Play</span><small>Two players, one device</small></span>
       </button>
       <button class="btn btn-secondary" data-action="online">
         <span class="btn-icon">🌐</span>
-        <span class="btn-label">Online <small>matchmaking</small></span>
+        <span class="btn-label"><span>Online</span><small>Find a match</small></span>
       </button>
       <button class="btn btn-ghost" data-action="how-to">
         <span class="btn-icon">❔</span>
-        <span class="btn-label">How to Play</span>
+        <span class="btn-label"><span>How to Play</span><small>Rules &amp; combos</small></span>
       </button>
     </div>
     <footer class="menu-footer">
@@ -89,17 +89,21 @@
           <span class="player-name" id="p2-name">—</span>
           <span class="hp-text"><span id="p2-hp">50</span>/<span id="p2-max">50</span></span>
         </div>
-        <div class="hp-bar"><div class="hp-fill" id="p2-hp-fill"></div></div>
+        <div class="hp-bar">
+          <div class="hp-loss" id="p2-hp-loss"></div>
+          <div class="hp-fill" id="p2-hp-fill"></div>
+        </div>
         <div class="status-icons" id="p2-status"></div>
       </div>
     </div>
 
     <!-- Center: arena -->
-    <div class="arena">
+    <div class="arena" id="arena">
       <div class="arena-bg"></div>
-      <div class="turn-banner" id="turn-banner"><span></span></div>
+      <div class="vignette" id="vignette"></div>
       <div class="combat-log" id="combat-log" aria-live="polite"></div>
       <div class="floating-fx" id="floating-fx"></div>
+      <div class="turn-banner" id="turn-banner"><span></span></div>
     </div>
 
     <!-- Dice + Actions -->
@@ -121,7 +125,10 @@
           <span class="player-name" id="p1-name">—</span>
           <span class="hp-text"><span id="p1-hp">50</span>/<span id="p1-max">50</span></span>
         </div>
-        <div class="hp-bar"><div class="hp-fill" id="p1-hp-fill"></div></div>
+        <div class="hp-bar">
+          <div class="hp-loss" id="p1-hp-loss"></div>
+          <div class="hp-fill" id="p1-hp-fill"></div>
+        </div>
         <div class="status-icons" id="p1-status"></div>
       </div>
     </div>
