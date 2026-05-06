@@ -1824,9 +1824,143 @@ html, body {
   }
 }
 
+/* ===== Desktop main menu (>= 960px) ===== */
+@media (min-width: 960px) {
+  /* Break menu / select / matchmaking / end / how-to out of the phone frame */
+  #screen-menu.active,
+  #screen-select.active,
+  #screen-matchmaking.active,
+  #screen-end.active,
+  #screen-howto.active {
+    max-width: none;
+    margin: 0;
+    inset: 0;
+    box-shadow: none;
+  }
+
+  /* ----- Menu ----- */
+  #screen-menu.active {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 4vh 6vw;
+    background:
+      radial-gradient(ellipse at top, rgba(139,92,246,0.18), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(255,140,40,0.12), transparent 55%),
+      linear-gradient(180deg, #1a0a2e 0%, #0d0518 60%, #1a0a2e 100%);
+  }
+  #screen-menu .menu-header { padding: 2vh 1rem 0; }
+  #screen-menu .logo { font-size: clamp(4.5rem, 10vw, 8rem); }
+  #screen-menu .tagline {
+    font-size: 1rem;
+    letter-spacing: 0.6em;
+    margin-top: 0.8rem;
+  }
+  #screen-menu .menu-buttons {
+    max-width: 760px;
+    width: 100%;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    align-content: center;
+  }
+  #screen-menu .menu-buttons .btn {
+    padding: 22px 26px;
+    font-size: 1.05rem;
+    min-height: 100px;
+  }
+  #screen-menu .btn-icon { font-size: 2rem; }
+  #screen-menu .btn-label > span:first-child { font-size: 1.15rem; }
+  #screen-menu .btn-label small { font-size: 0.75rem; }
+  #screen-menu .menu-footer {
+    font-size: 0.8rem;
+    padding: 1.4rem 2rem;
+    max-width: 1280px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ----- Hero select: split-pane ----- */
+  #screen-select.active {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(0, 1fr) clamp(420px, 38vw, 600px);
+    grid-template-areas:
+      "header header"
+      "grid   detail";
+    max-width: 1480px;
+    margin: 0 auto;
+  }
+  #screen-select .select-header { grid-area: header; padding: 1rem 1.6rem; }
+  #screen-select .select-header h2 { font-size: 1.1rem; }
+  #screen-select .hero-grid {
+    grid-area: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+    padding: 1.6rem;
+    align-content: start;
+  }
+  #screen-select .hero-grid .hero-card .glyph { font-size: 3.4rem; }
+  #screen-select .hero-grid .hero-card .label { font-size: 0.78rem; }
+  #screen-select .hero-detail {
+    grid-area: detail;
+    border-top: none;
+    border-left: 1px solid rgba(255,255,255,0.08);
+    padding: 1.6rem;
+    overflow-y: auto;
+  }
+  #screen-select .hero-portrait {
+    width: 140px; height: 140px;
+    font-size: 5rem;
+  }
+  #screen-select .hero-info h3 { font-size: 1.7rem; }
+  #screen-select .hero-tagline { font-size: 1rem; }
+
+  /* ----- Matchmaking ----- */
+  #screen-matchmaking.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(ellipse at center, rgba(139,92,246,0.15), transparent 55%),
+      linear-gradient(180deg, #1a0a2e 0%, #0d0518 50%, #1a0a2e 100%);
+  }
+  #screen-matchmaking .mm-card {
+    max-width: 480px;
+    padding: 3rem;
+  }
+  #screen-matchmaking .mm-spinner { width: 110px; height: 110px; }
+  #screen-matchmaking h2 { font-size: 1.6rem; }
+
+  /* ----- End ----- */
+  #screen-end.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #screen-end .end-card {
+    max-width: 540px;
+    padding: 3rem;
+  }
+  #screen-end .end-card h1 { font-size: 4.5rem; }
+  #screen-end .end-portrait { font-size: 7rem; }
+  #screen-end .end-stats { font-size: 1rem; padding: 1.4rem; }
+  #screen-end .end-buttons { flex-direction: row; justify-content: center; }
+  #screen-end .end-buttons .btn { min-width: 180px; }
+
+  /* ----- How to play ----- */
+  #screen-howto .howto-content {
+    padding: 2rem 2.4rem 3rem;
+    max-width: 880px;
+    font-size: 1rem;
+  }
+  #screen-howto .howto-content h3 { font-size: 1.3rem; margin-top: 1.6rem; }
+}
+
 /* Wide desktop: bump font for very large screens */
 @media (min-width: 1400px) {
   #screen-battle .die { width: 84px; height: 84px; }
   #screen-battle .die-face { font-size: 3rem; }
   #screen-battle .turn-banner span { font-size: 3rem; }
+  #screen-menu .logo { font-size: 9rem; }
 }
