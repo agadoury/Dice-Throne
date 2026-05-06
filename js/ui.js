@@ -178,15 +178,34 @@ const UI = (function () {
     });
   }
 
-  /* ---- Combat log ---- */
+  /* ---- Combat log ----
+     Newest message gets the `is-newest` class for visual emphasis; older
+     siblings are demoted to `older` / `oldest` for a soft fade. Lines stay
+     pinned until pushed off the cap (no time-based fade-out). */
+
+  const LOG_MAX = 7;
 
   function log(msg, kind = '') {
     const l = $('#combat-log');
+
+    // Demote whatever was newest before
+    const prevNewest = l.querySelector('.log-line.is-newest');
+    if (prevNewest) prevNewest.classList.remove('is-newest');
+
     const line = document.createElement('div');
-    line.className = 'log-line ' + kind;
+    line.className = 'log-line is-newest ' + kind;
     line.innerHTML = msg;
     l.prepend(line);
-    while (l.children.length > 6) l.removeChild(l.lastChild);
+
+    // Apply age classes to siblings (skip the newest, which is index 0)
+    const lines = [...l.children];
+    for (let i = 1; i < lines.length; i++) {
+      lines[i].classList.remove('older', 'oldest');
+      if (i <= 2) lines[i].classList.add('older');
+      else lines[i].classList.add('oldest');
+    }
+
+    while (l.children.length > LOG_MAX) l.removeChild(l.lastChild);
   }
 
   /* ---- Floating combat numbers ---- */
