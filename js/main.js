@@ -126,12 +126,20 @@
     styleEl.textContent = hero.style;
     diffEl.textContent = hero.difficulty;
     if (dicePreview) {
+      const useSvg = !!window.diceFaceSVG;
+      const mat = (window.HERO_DICE_MATERIAL || {})[hero.id] || {};
+      const matStyle = mat.bg ? `--die-face-bg:${mat.bg};--die-face-fg:${mat.fg};--die-face-edge:${mat.edge};--die-face-shine:${mat.shine};--die-face-glow:${mat.glow};` : '';
       dicePreview.innerHTML = '<div class="preview-label">Dice Faces — low → high</div>' +
-        (hero.diceFaces || []).map((f, i) => `
-          <div class="preview-die" style="--die-tint:${hero.color}" title="${(hero.diceFaceNames || [])[i] || ''}">
-            <span>${f}</span>
-          </div>
-        `).join('');
+        Array.from({ length: 6 }, (_, i) => {
+          const name = (hero.diceFaceNames || [])[i] || '';
+          const faceContent = useSvg
+            ? diceFaceSVG(hero.id, i + 1)
+            : `<span>${(hero.diceFaces || [])[i] || (i + 1)}</span>`;
+          return `
+            <div class="preview-die" style="${matStyle}" title="${name}">
+              <span class="preview-face">${faceContent}</span>
+            </div>`;
+        }).join('');
     }
     abilitiesEl.innerHTML = '';
     hero.abilities.forEach(a => {

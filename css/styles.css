@@ -385,33 +385,49 @@ html, body {
   border-bottom: 1px dashed rgba(255,255,255,0.08);
 }
 .hero-dice-preview .preview-die {
-  width: 38px; height: 38px;
-  border-radius: 8px;
-  background: radial-gradient(circle at 30% 25%, #fff, #d8d8e8 65%);
+  --die-face-bg: radial-gradient(circle at 30% 22%, #fff, #d8d8e8 65%);
+  --die-face-fg: #1a1a2e;
+  --die-face-edge: rgba(0,0,0,0.05);
+  --die-face-shine: rgba(255,255,255,0.85);
+  --die-face-glow: rgba(0,0,0,0.3);
+  width: 42px; height: 42px;
+  border-radius: 9px;
+  background: var(--die-face-bg);
   display: grid;
   place-items: center;
   font-size: 1.3rem;
   line-height: 1;
-  color: #1a1a2e;
+  color: var(--die-face-fg);
   box-shadow:
-    0 2px 4px rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,255,255,0.7),
-    inset 0 0 0 1px var(--die-tint, rgba(0,0,0,0.05));
+    0 3px 6px rgba(0,0,0,0.45),
+    0 0 8px var(--die-face-glow),
+    inset 0 1px 0 var(--die-face-shine),
+    inset 0 0 0 1px var(--die-face-edge);
   position: relative;
   overflow: hidden;
 }
 .hero-dice-preview .preview-die::before {
   content: '';
   position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 100%, var(--die-tint, transparent), transparent 60%);
-  opacity: 0.18;
+  left: 8%; right: 8%; top: 6%; height: 28%;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--die-face-shine), transparent 80%);
+  opacity: 0.45;
+  filter: blur(1px);
   pointer-events: none;
 }
-.hero-dice-preview .preview-die span {
+.hero-dice-preview .preview-face {
   position: relative;
   z-index: 1;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));
+  display: grid;
+  place-items: center;
+  width: 72%;
+  height: 72%;
+}
+.hero-dice-preview .preview-face svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.35));
 }
 .hero-dice-preview .preview-label {
   flex: 1 1 100%;
@@ -952,27 +968,47 @@ html, body {
   gap: 5px;
 }
 .def-die {
+  --die-face-bg: radial-gradient(circle at 30% 22%, #fff 0%, #d8d8e8 65%);
+  --die-face-fg: #1a1a2e;
+  --die-face-edge: rgba(0,0,0,0.05);
+  --die-face-shine: rgba(255,255,255,0.85);
+  --die-face-glow: rgba(0,0,0,0.4);
   width: 32px; height: 32px;
   border-radius: 7px;
   font-size: 1rem;
   font-weight: 900;
   display: grid;
   place-items: center;
-  background: radial-gradient(circle at 30% 25%, #fff, #d8d8e8 65%);
-  color: #1a1a2e;
+  background: var(--die-face-bg);
+  color: var(--die-face-fg);
   box-shadow:
     0 2px 6px rgba(0,0,0,0.5),
-    inset 0 1px 0 rgba(255,255,255,0.7),
-    inset 0 0 0 1px var(--die-tint, rgba(0,0,0,0.05));
+    inset 0 1px 0 var(--die-face-shine),
+    inset 0 0 0 1px var(--die-face-edge);
   animation: defDieRoll 0.55s cubic-bezier(.36,.07,.19,1) both;
   animation-delay: var(--def-delay, 0s);
   position: relative;
+}
+/* Defense dice that block ride green over the hero material */
+.def-die.block {
+  --die-face-bg: linear-gradient(180deg, #6cf09a 0%, #22c55e 100%);
+  --die-face-fg: #052c14;
+  --die-face-shine: rgba(255,255,255,0.6);
 }
 .def-face {
   position: relative;
   z-index: 1;
   line-height: 1;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));
+  display: grid;
+  place-items: center;
+  width: 70%;
+  height: 70%;
+}
+.def-face svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.35));
 }
 .def-die.block {
   background: linear-gradient(180deg, #6cf09a, #22c55e);
@@ -1259,51 +1295,72 @@ html, body {
   min-height: 64px;
 }
 .die {
+  --die-face-bg: radial-gradient(circle at 30% 22%, #ffffff 0%, #d8d8e8 65%);
+  --die-face-fg: #1a1a2e;
+  --die-face-edge: rgba(0,0,0,0.05);
+  --die-face-shine: rgba(255,255,255,0.85);
+  --die-face-glow: rgba(0,0,0,0.4);
   width: 56px; height: 56px;
   border-radius: 12px;
-  background:
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.95), rgba(232,232,242,1) 65%);
-  color: #1a1a2e;
+  background: var(--die-face-bg);
+  color: var(--die-face-fg);
   display: grid;
   place-items: center;
   position: relative;
   cursor: pointer;
   font-weight: 800;
   box-shadow:
-    0 4px 8px rgba(0,0,0,0.5),
-    inset 0 -3px 0 rgba(0,0,0,0.18),
-    inset 0 2px 0 rgba(255,255,255,0.85),
-    inset 0 0 0 1px var(--die-tint, rgba(0,0,0,0.05));
+    0 6px 10px rgba(0,0,0,0.55),
+    0 0 12px var(--die-face-glow),
+    inset 0 -3px 0 rgba(0,0,0,0.22),
+    inset 0 2px 0 var(--die-face-shine),
+    inset 0 0 0 1px var(--die-face-edge);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   flex: 0 0 auto;
   overflow: hidden;
 }
+/* Subtle highlight band across the top of the die — fakes a glossy material */
 .die::before {
+  content: '';
+  position: absolute;
+  left: 8%; right: 8%; top: 6%; height: 28%;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--die-face-shine), transparent 80%);
+  opacity: 0.45;
+  filter: blur(1px);
+  pointer-events: none;
+}
+/* Soft accent glow at the bottom — hero colour bleed */
+.die::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: radial-gradient(circle at 50% 100%, var(--die-tint, transparent) 0%, transparent 65%);
-  opacity: 0.18;
+  background: radial-gradient(circle at 50% 100%, var(--die-face-glow) 0%, transparent 70%);
+  opacity: 0.25;
   pointer-events: none;
+  mix-blend-mode: screen;
 }
 .die.locked {
-  background:
-    radial-gradient(circle at 30% 25%, #fff3c4, #ffd97a 60%, #ffae2b 100%);
+  transform: translateY(-3px) scale(1.04);
   box-shadow:
-    0 0 16px rgba(255,174,43,0.75),
+    0 0 22px rgba(255,174,43,0.95),
+    0 6px 10px rgba(0,0,0,0.55),
+    inset 0 0 0 2px #ffae2b,
+    inset 0 0 12px rgba(255,204,77,0.3),
     inset 0 -3px 0 rgba(0,0,0,0.22),
-    inset 0 2px 0 rgba(255,255,255,0.7);
-  transform: translateY(-3px);
+    inset 0 2px 0 var(--die-face-shine);
 }
-.die.locked::before { opacity: 0; }
 .die.empty {
   background: rgba(255,255,255,0.04);
   border: 2px dashed rgba(255,255,255,0.15);
   color: var(--ink-mute);
   box-shadow: none;
 }
-.die.empty::before { opacity: 0; }
+.die.empty::before, .die.empty::after { opacity: 0; }
+
+/* The locked gold lock-pulse shouldn't fight with the material — keep the
+   gold halo, allow the material to peek through. */
 .die.rolling {
   animation: rollDie 0.85s cubic-bezier(.32,.78,.36,1) both;
   animation-delay: var(--die-delay, 0s);
@@ -1329,13 +1386,21 @@ html, body {
   line-height: 1;
   display: grid;
   place-items: center;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));
+  width: 72%;
+  height: 72%;
+  color: var(--die-face-fg, #1a1a2e);
   font-family: -apple-system, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif;
   user-select: none;
   -webkit-user-select: none;
 }
+.die-face svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 1px 0 rgba(0,0,0,0.35));
+}
 .die.locked .die-face {
-  filter: drop-shadow(0 1px 0 rgba(120,60,0,0.35));
+  filter: drop-shadow(0 0 4px rgba(255,204,77,0.5));
 }
 .die-empty {
   font-size: 1.6rem;

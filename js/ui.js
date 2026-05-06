@@ -23,13 +23,16 @@ const UI = (function () {
 
   /* ---- Dice rendering ---- */
 
-  // Render a die face for a hero. Each hero has 6 themed glyphs (low-to-high).
+  // Render a die face for a hero. Uses the hero's SVG icon set; falls back to
+  // emoji glyphs / numeric values if the icon module isn't loaded.
   function renderDie(value, hero) {
     if (value <= 0) return '<span class="die-empty">·</span>';
-    const faces = hero?.diceFaces;
-    const symbol = faces ? faces[value - 1] : value;
-    const name = hero?.diceFaceNames ? hero.diceFaceNames[value - 1] : '';
-    return `<div class="die-face" data-value="${value}" title="${name}">${symbol}</div>`;
+    if (window.diceFaceSVG && hero?.id) {
+      const name = hero?.diceFaceNames ? hero.diceFaceNames[value - 1] : '';
+      return `<div class="die-face" data-value="${value}" title="${name}">${diceFaceSVG(hero.id, value)}</div>`;
+    }
+    const symbol = hero?.diceFaces ? hero.diceFaces[value - 1] : value;
+    return `<div class="die-face" data-value="${value}">${symbol}</div>`;
   }
 
   function renderDiceTray(state, { canLock, onClick, hero }) {
@@ -38,6 +41,7 @@ const UI = (function () {
     state.values.forEach((v, i) => {
       const el = document.createElement('div');
       el.className = 'die';
+      if (window.applyDieMaterial) applyDieMaterial(el, hero);
       if (hero?.color) el.style.setProperty('--die-tint', hero.color);
       if (v === 0) el.classList.add('empty');
       if (state.locked[i]) el.classList.add('locked');
@@ -306,10 +310,15 @@ const UI = (function () {
     die.className = 'def-die ' + (value >= 4 ? 'block' : 'fail');
     die.style.setProperty('--def-delay', (idx * 0.08).toFixed(2) + 's');
     die.style.setProperty('--def-pulse-delay', (0.55 + idx * 0.08).toFixed(2) + 's');
+    if (window.applyDieMaterial) applyDieMaterial(die, hero);
     if (hero?.color) die.style.setProperty('--die-tint', hero.color);
-    const sym = hero?.diceFaces ? hero.diceFaces[value - 1] : value;
     const name = hero?.diceFaceNames ? hero.diceFaceNames[value - 1] : '';
-    die.innerHTML = `<span class="def-face" title="${name}">${sym}</span>`;
+    if (window.diceFaceSVG && hero?.id) {
+      die.innerHTML = `<span class="def-face" title="${name}">${diceFaceSVG(hero.id, value)}</span>`;
+    } else {
+      const sym = hero?.diceFaces ? hero.diceFaces[value - 1] : value;
+      die.innerHTML = `<span class="def-face" title="${name}">${sym}</span>`;
+    }
     return die;
   }
 
