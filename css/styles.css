@@ -995,6 +995,28 @@ html, body {
   --die-face-fg: #052c14;
   --die-face-shine: rgba(255,255,255,0.6);
 }
+/* Empty placeholder defense die (before any roll) */
+.def-die.empty {
+  background: rgba(255,255,255,0.04);
+  border: 2px dashed rgba(255,255,255,0.18);
+  box-shadow: none;
+  color: var(--ink-mute);
+  animation: none;
+}
+.def-die.empty .def-face { color: var(--ink-mute); opacity: 0.5; font-size: 1.1rem; }
+/* Locked-keeper defense die — gold halo over the material */
+.def-die.locked-keep {
+  outline: 2px solid #ffae2b;
+  outline-offset: -1px;
+  box-shadow:
+    0 0 16px rgba(255,174,43,0.85),
+    0 2px 6px rgba(0,0,0,0.5),
+    inset 0 0 10px rgba(255,204,77,0.3),
+    inset 0 1px 0 var(--die-face-shine);
+  transform: translateY(-2px);
+}
+.def-die.clickable { cursor: pointer; }
+.def-die.clickable:active { transform: scale(0.95); }
 .def-face {
   position: relative;
   z-index: 1;
@@ -1194,9 +1216,38 @@ html, body {
 .defense-dice-row {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   padding: 4px 0 8px;
-  min-height: 40px;
+  min-height: 50px;
+}
+.def-roll-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 4px 4px 8px;
+  flex-wrap: wrap;
+}
+.def-roll-controls .rolls-left {
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.def-roll-controls .rolls-left b { color: var(--gold); font-size: 1rem; }
+.def-roll-controls .btn-roll {
+  padding: 10px 16px;
+  font-size: 0.92rem;
+}
+.def-roll-controls .btn-roll[disabled] { animation: none; }
+.def-hint {
+  width: 100%;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--ink-mute);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+  font-style: italic;
 }
 .defense-dice-row .def-die {
   width: 44px; height: 44px;
@@ -1807,11 +1858,15 @@ html, body {
 
   /* Defense panel uses the wider sidebar elegantly */
   #screen-battle .defense-prompt { font-size: 1rem; padding: 10px 4px; }
-  #screen-battle .defense-dice-row { padding: 8px 0 12px; }
+  #screen-battle .defense-dice-row { padding: 12px 0 14px; }
   #screen-battle .defense-dice-row .def-die {
-    width: 56px; height: 56px;
-    border-radius: 11px;
-    font-size: 1.9rem;
+    width: 68px; height: 68px;
+    border-radius: 14px;
+    font-size: 2.2rem;
+  }
+  #screen-battle .def-roll-controls .btn-roll {
+    padding: 14px 22px;
+    font-size: 1rem;
   }
   #screen-battle .defense-option { padding: 12px 14px; }
   #screen-battle .defense-option .name { font-size: 1rem; }

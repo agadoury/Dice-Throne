@@ -422,43 +422,74 @@ const UI = (function () {
   }
 
   // Render the defense choice panel and call onChoose with the selected option.
-  function renderDefensePanel({ defender, attacker, ability, dmg, rolls, triggers, onChoose }) {
+  // Render the interactive defense panel. Drives a full mini-turn where the
+  // defender rolls 3 dice (up to 3 rolls), can lock keepers between rolls,
+  // and picks a defensive ability when satisfied.
+  //
+  // opts:
+  //   defender, attacker, ability, dmg : context
+  //   state                              : defense dice state (newDefenseState())
+  //   onRoll(), onLock(idx)              : interactive callbacks
+  //   onChoose(defenseOption)            : commit a defense
+  function renderDefensePanel({ defender, attacker, ability, dmg, state, onRoll, onLock, onChoose }) {
     showDefenseZone();
     $('#def-attacker').textContent = attacker.name;
     $('#def-ability-name').textContent = ability.name;
     $('#def-incoming').textContent = dmg;
     $('#def-pierce').hidden = !ability.undefendable;
 
-    // Render rolled defense dice (with green/fail styling and hero faces)
+    // ---- Dice row ----
     const diceRow = $('#def-dice-row');
     diceRow.innerHTML = '';
-    rolls.forEach((v, i) => diceRow.appendChild(buildDefDie(v, defender.hero, i, rolls.length)));
+    state.values.forEach((v, i) => {
+      const die = buildDefDieInteractive({
+        value: v, hero: defender.hero, idx: i,
+        locked: state.locked[i],
+        canLock: v > 0 && state.rollsLeft > 0 && state.hasRolled,
+        onLock,
+      });
+      diceRow.appendChild(die);
+    });
 
-    // Render defensive options — Brace + any combo-matched hero defenses
+    // ---- Roll controls ----
+    $('#def-rolls-left').textContent = state.rollsLeft;
+    const rollBtn = $('#btn-def-roll');
+    rollBtn.disabled = state.rollsLeft <= 0;
+    rollBtn.textContent = state.hasRolled ? 'Re-roll' : 'Roll Defense';
+    rollBtn.onclick = () => onRoll && onRoll();
+    const hint = $('#def-hint');
+    if (!state.hasRolled) {
+      hint.textContent = 'Roll your defense dice to see options';
+    } else if (state.rollsLeft > 0) {
+      hint.textContent = 'Tap dice to keep, then re-roll — or pick a defense';
+    } else {
+      hint.textContent = 'Choose your defense';
+    }
+
+    // ---- Defensive options ----
+    const triggers = state.hasRolled ? detectDefenseCombos(state.values) : new Set();
     const opts = $('#def-options');
     opts.innerHTML = '';
     defender.hero.defenses.forEach(d => {
-      const can = triggers.has(d.combo);
+      const can = state.hasRolled && triggers.has(d.combo);
       const btn = document.createElement('button');
       const isStandard = d.combo === 'd-any';
       btn.className = 'defense-option' + (can ? ' available' : '') + (isStandard ? ' standard' : '');
       btn.disabled = !can;
-      // Preview damage (sandbox to undo any side effects in apply)
-      const result = previewDefense(d, rolls, dmg, defender, attacker);
-      const reducedTo = Math.max(0, result);
-      const blocks = dmg - reducedTo;
-      let badge;
-      if (reducedTo === 0) badge = `<span class="reduce full">BLOCK ALL</span>`;
-      else if (blocks > 0) badge = `<span class="reduce">-${blocks}</span>`;
-      else badge = `<span class="reduce" style="background:linear-gradient(180deg,#c0392b,#7a0010)">TAKE ${dmg}</span>`;
+      let badge = '';
+      if (state.hasRolled) {
+        const result = previewDefense(d, state.values, dmg, defender, attacker);
+        const reducedTo = Math.max(0, result);
+        const blocks = dmg - reducedTo;
+        if (reducedTo === 0) badge = `<span class="reduce full">BLOCK ALL</span>`;
+        else if (blocks > 0) badge = `<span class="reduce">-${blocks}</span>`;
+        else badge = `<span class="reduce" style="background:linear-gradient(180deg,#c0392b,#7a0010)">TAKE ${dmg}</span>`;
+      }
       btn.innerHTML = `
         <div class="name"><span>${d.name}</span>${badge}</div>
         <span class="combo">${(window.DEF_COMBO_LABEL && window.DEF_COMBO_LABEL[d.combo]) || ''}</span>
         <div class="desc">${d.desc}</div>
       `;
-      // We compute reducedTo here using a *trial* apply that mutates defender/attacker — undo that
-      // by re-cloning state would be heavy. Instead, store the original values and pass the
-      // chosen option to onChoose without applying side-effects in preview. We re-apply on click.
       btn.addEventListener('click', () => {
         if (!can) return;
         showOffenseZone();
@@ -467,9 +498,34 @@ const UI = (function () {
       opts.appendChild(btn);
     });
   }
-  // NOTE: the preview value above can mutate defender/attacker via apply() side-effects.
-  // To prevent that, we sandbox each preview through a clone and restore.
-  // Implemented by re-rendering with a sandboxed clone on each call.
+
+  // Build an interactive defense die that supports empty / locked / clickable states.
+  function buildDefDieInteractive({ value, hero, idx, locked, canLock, onLock }) {
+    const die = document.createElement('div');
+    if (value === 0) {
+      die.className = 'def-die empty';
+      die.innerHTML = `<span class="def-face">?</span>`;
+      return die;
+    }
+    die.className = 'def-die ' + (value >= 4 ? 'block' : 'fail');
+    if (locked) die.classList.add('locked-keep');
+    if (canLock) die.classList.add('clickable');
+    die.style.setProperty('--def-delay', (idx * 0.06).toFixed(2) + 's');
+    die.style.setProperty('--def-pulse-delay', (0.5 + idx * 0.06).toFixed(2) + 's');
+    if (window.applyDieMaterial) applyDieMaterial(die, hero);
+    if (hero?.color) die.style.setProperty('--die-tint', hero.color);
+    const name = hero?.diceFaceNames ? hero.diceFaceNames[value - 1] : '';
+    if (window.diceFaceSVG && hero?.id) {
+      die.innerHTML = `<span class="def-face" title="${name}">${diceFaceSVG(hero.id, value)}</span>`;
+    } else {
+      const sym = hero?.diceFaces ? hero.diceFaces[value - 1] : value;
+      die.innerHTML = `<span class="def-face" title="${name}">${sym}</span>`;
+    }
+    if (canLock && onLock) {
+      die.addEventListener('click', () => onLock(idx));
+    }
+    return die;
+  }
 
   // Toggle the persistent guard badge on the defender's avatar.
   function setGuardBadge(targetKey, on) {

@@ -77,6 +77,34 @@ const COMBO_RANK = {
   [COMBO.ODD_ALL]: 3,
 };
 
+/* ---- Defense dice state — defender rolls these like a mini turn ---- */
+const DEFENSE_DICE = 3;
+const DEFENSE_MAX_ROLLS = 3;
+
+function newDefenseState() {
+  return {
+    values: Array(DEFENSE_DICE).fill(0),
+    locked: Array(DEFENSE_DICE).fill(false),
+    rollsLeft: DEFENSE_MAX_ROLLS,
+    hasRolled: false,
+  };
+}
+
+function rollDefenseDice(state) {
+  if (state.rollsLeft <= 0) return state;
+  for (let i = 0; i < state.values.length; i++) {
+    if (!state.locked[i]) state.values[i] = rollDie();
+  }
+  state.rollsLeft--;
+  state.hasRolled = true;
+  return state;
+}
+
+window.DEFENSE_DICE = DEFENSE_DICE;
+window.DEFENSE_MAX_ROLLS = DEFENSE_MAX_ROLLS;
+window.newDefenseState = newDefenseState;
+window.rollDefenseDice = rollDefenseDice;
+
 /* ---- 3-die defensive combos ---- */
 const DEF_COMBO = {
   ANY: 'd-any',

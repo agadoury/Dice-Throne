@@ -431,12 +431,6 @@
       }
     }
 
-    // Travel: projectile or slash
-    const projDef = PROJECTILE_HEROES[attacker.hero.id];
-    const hasProjectile = (ability.dmg || 0) > 0 && projDef;
-    if (hasProjectile) {
-      setTimeout(() => UI.projectile(aKey, dKey, projDef.glyph, projDef.color), 200);
-    }
     // Sync persistent guard badge on the defender's avatar after possible consumption
     UI.setGuardBadge(dKey, defender.statuses.some(s => s.kind === 'guard' && s.amount > 0));
 
@@ -445,24 +439,32 @@
       dmg > 0 && !dodged && !ability.undefendable
     );
 
+    // Lazy-fire projectile only when impact is imminent so it doesn't fly past
+    // an empty arena while the defender is still rolling/picking.
+    const projDef = PROJECTILE_HEROES[attacker.hero.id];
+    const hasProjectile = (ability.dmg || 0) > 0 && projDef && !dodged;
+    function fireProjectile() {
+      if (hasProjectile) UI.projectile(aKey, dKey, projDef.glyph, projDef.color);
+    }
+
     if (willChooseDefense) {
-      const defRolls = [rollDie(), rollDie(), rollDie()];
-      const triggers = detectDefenseCombos(defRolls);
       const defenderIsHuman = isHumanFor(defender);
 
-      const proceed = (chosenDefense) => {
-        // Snapshot to detect side effects (counter dmg, self-heal)
+      // proceed(): commit a chosen defense — applies it, animates side effects,
+      //           fires the projectile, and schedules the impact resolution.
+      const proceed = (chosenDefense, defRolls) => {
         const dHpBefore = defender.hp;
         const aHpBefore = attacker.hp;
         const reduced = Math.max(0, chosenDefense.apply(defRolls, dmg, defender, attacker));
         const blocked = dmg - reduced;
         const counter = Math.max(0, aHpBefore - attacker.hp);
         const selfHeal = Math.max(0, defender.hp - dHpBefore);
-        if (blocked > 0) {
-          UI.log(`<b>${defender.name}</b> uses <b>${chosenDefense.name}</b> [${defRolls.join(', ')}] — blocks ${blocked}`, 'crit');
-        } else {
-          UI.log(`<b>${defender.name}</b> uses <b>${chosenDefense.name}</b> [${defRolls.join(', ')}] — no blocks`);
-        }
+        UI.log(
+          (blocked > 0
+            ? `<b>${defender.name}</b> uses <b>${chosenDefense.name}</b> [${defRolls.join(', ')}] — blocks ${blocked}`
+            : `<b>${defender.name}</b> uses <b>${chosenDefense.name}</b> [${defRolls.join(', ')}] — no blocks`),
+          'crit'
+        );
         const summary = chosenDefense.summary
           ? chosenDefense.summary(defRolls, dmg)
           : (blocked > 0 ? `🛡 ${blocked} BLOCKED` : '✗ NO BLOCK');
@@ -471,7 +473,6 @@
           customLabel: summary,
           hero: defender.hero,
         });
-        // Visualize defense side effects
         if (counter > 0) {
           setTimeout(() => {
             UI.flashHit(aKey);
@@ -494,29 +495,25 @@
         UI.updatePlayerBar('p1', Game.p1);
         UI.updatePlayerBar('p2', Game.p2);
         if (checkWinner()) return;
+        // Fire projectile to deliver the (reduced) hit, then run impact
+        setTimeout(fireProjectile, 250);
         finalizeImpact(reduced);
       };
 
       if (defenderIsHuman) {
-        // Pause and render defense panel; resume when player picks
-        UI.renderDefensePanel({
-          defender, attacker, ability, dmg,
-          rolls: defRolls, triggers,
-          onChoose: (choice) => proceed(choice),
-        });
+        runHumanDefenseTurn(defender, attacker, ability, dmg, proceed);
       } else {
-        // AI auto-picks; show as a brief popup-only flow (no panel)
-        const choice = AI.pickDefense(defender, attacker, defRolls, dmg);
-        // Small delay so player sees the AI "thinking"
-        setTimeout(() => proceed(choice), 350);
+        runAiDefenseTurn(defender, attacker, ability, dmg, proceed);
       }
     } else {
       // No defense choice (dodge auto-fired, undefendable, or no damage). Show pierce/dodge visual then impact.
       if (ability.dmg > 0) {
         if (dodged) {
           // Visual handled in finalizeImpact
+          setTimeout(fireProjectile, 200);
         } else if (ability.undefendable) {
-          setTimeout(() => UI.showPierce(dKey), 250);
+          setTimeout(() => UI.showPierce(dKey), 200);
+          setTimeout(fireProjectile, 350);
         } else if (guardAbsorbed > 0 && dmg === 0) {
           setTimeout(() => UI.showGuardAbsorb(dKey, guardAbsorbed), 250);
         }
@@ -568,6 +565,89 @@
   function isHumanFor(player) {
     if (Game.mode === 'local') return true;
     return player === Game.p1;
+  }
+
+  /* ============================================================
+     Defensive turn — defender rolls 3 dice (up to 3 rolls), can
+     lock keepers, and picks a defensive ability.
+     ============================================================ */
+
+  function runHumanDefenseTurn(defender, attacker, ability, dmg, commit) {
+    const state = newDefenseState();
+    function rerender() {
+      UI.renderDefensePanel({
+        defender, attacker, ability, dmg, state,
+        onRoll: () => {
+          if (state.rollsLeft <= 0) return;
+          GameAudio.diceRoll();
+          rollDefenseDice(state);
+          rerender();
+          setTimeout(() => GameAudio.diceLand(), 450);
+        },
+        onLock: (idx) => {
+          if (state.values[idx] === 0) return;
+          if (state.rollsLeft <= 0) return;
+          state.locked[idx] = !state.locked[idx];
+          GameAudio.diceLock();
+          rerender();
+        },
+        onChoose: (chosenDefense) => {
+          GameAudio.buttonClick();
+          commit(chosenDefense, state.values.slice());
+        },
+      });
+    }
+    rerender();
+  }
+
+  function runAiDefenseTurn(defender, attacker, ability, dmg, commit) {
+    const state = newDefenseState();
+    let stepN = 0;
+
+    function step() {
+      stepN++;
+      if (state.rollsLeft <= 0 || aiShouldStopRollingDef(state)) {
+        const choice = AI.pickDefense(defender, attacker, state.values.slice(), dmg);
+        commit(choice, state.values.slice());
+        return;
+      }
+      if (state.hasRolled) {
+        // Lock smart dice based on what would help the AI's best available defense
+        state.locked = aiChooseDefenseLocks(state.values, defender);
+      }
+      GameAudio.diceRoll();
+      rollDefenseDice(state);
+      setTimeout(() => GameAudio.diceLand(), 280);
+      // Yield briefly between rolls so player perceives the AI "thinking"
+      setTimeout(step, 480);
+    }
+    // Tiny opening pause so the attack lunge plays before AI starts its defense
+    setTimeout(step, 200);
+  }
+
+  function aiShouldStopRollingDef(state) {
+    if (!state.hasRolled) return false;
+    const triggers = detectDefenseCombos(state.values);
+    // Three of a kind always blocks all — stop immediately
+    if (triggers.has(DEF_COMBO.THREE)) return true;
+    // All-high (every die ≥4) blocks max via Brace — stop
+    if (triggers.has(DEF_COMBO.ALL_HIGH)) return true;
+    return false;
+  }
+
+  // For the AI: pick which dice to keep before re-rolling toward a stronger defense.
+  function aiChooseDefenseLocks(values, defender) {
+    const counts = {};
+    values.forEach(v => counts[v] = (counts[v] || 0) + 1);
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    const topFace = +sorted[0][0];
+    const topCount = sorted[0][1];
+    // Prefer chasing 3-of-a-kind: lock all dice matching the most common face
+    if (topCount >= 2) {
+      return values.map(v => v === topFace);
+    }
+    // Otherwise lock dice that already block (≥4) and re-roll the failures
+    return values.map(v => v >= 4);
   }
 
   // ===== End turn =====
