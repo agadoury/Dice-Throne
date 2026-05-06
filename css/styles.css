@@ -1687,3 +1687,146 @@ html, body {
       radial-gradient(circle at center, var(--bg-1), var(--bg-0) 70%);
   }
 }
+
+/* ===== Desktop battle layout (>= 960px) ===== */
+@media (min-width: 960px) {
+  body {
+    background:
+      radial-gradient(ellipse at top, var(--bg-2) 0%, var(--bg-1) 35%, var(--bg-0) 100%);
+  }
+
+  /* Battle screen breaks out of the phone frame and uses a grid layout:
+       row 1: opponent bar     |  action sidebar
+       row 2: arena            |  action sidebar (continued)
+       row 3: your bar         |  action sidebar (continued) */
+  #screen-battle.active {
+    max-width: 1280px;
+    margin: 0 auto;
+    inset: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(360px, 32vw, 460px);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "topbar action"
+      "arena  action"
+      "botbar action";
+    box-shadow: 0 0 80px rgba(0,0,0,0.7);
+    background:
+      radial-gradient(ellipse at 30% 0%, rgba(139,92,246,0.12), transparent 50%),
+      radial-gradient(ellipse at 70% 100%, rgba(255,140,40,0.08), transparent 55%),
+      linear-gradient(180deg, #1a0a2e 0%, #0d0518 50%, #1a0a2e 100%);
+  }
+  #bar-p2 { grid-area: topbar; }
+  #screen-battle .arena { grid-area: arena; min-height: 0; }
+  #bar-p1 { grid-area: botbar; }
+  #screen-battle .action-zone {
+    grid-area: action;
+    border-top: none;
+    border-bottom: none;
+    border-left: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0.85));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 16px;
+  }
+
+  /* Make the action sidebar contents use the available vertical space */
+  #screen-battle .offense-zone {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 10px;
+  }
+  #screen-battle .defense-zone {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 8px;
+  }
+  #screen-battle .abilities,
+  #screen-battle .defense-options {
+    flex: 1;
+    max-height: none;
+    align-content: start;
+  }
+  #screen-battle .abilities {
+    grid-template-columns: 1fr 1fr;
+  }
+  #screen-battle .defense-options {
+    grid-template-columns: 1fr;
+  }
+
+  /* Bigger, chunkier dice and player UI on desktop */
+  #screen-battle .die {
+    width: 76px; height: 76px;
+    border-radius: 16px;
+  }
+  #screen-battle .die-face { font-size: 2.6rem; }
+  #screen-battle .dice-tray { gap: 12px; min-height: 86px; }
+  #screen-battle .roll-controls { padding: 4px 0 0; }
+  #screen-battle .btn-roll, #screen-battle .btn-end {
+    padding: 14px 18px;
+    font-size: 1rem;
+  }
+  #screen-battle .ability { padding: 10px 12px; }
+  #screen-battle .ability .name { font-size: 0.95rem; }
+  #screen-battle .ability .desc { font-size: 0.8rem; }
+
+  /* Player bars: bigger avatar + bolder name */
+  #screen-battle .player-bar { padding: 14px 20px; gap: 14px; }
+  #screen-battle .avatar {
+    width: 72px; height: 72px; flex: 0 0 72px;
+  }
+  #screen-battle .portrait { font-size: 2.6rem; }
+  #screen-battle .player-name { font-size: 1.1rem; }
+  #screen-battle .hp-bar { height: 18px; border-radius: 9px; }
+  #screen-battle .hp-text { font-size: 0.95rem; }
+  #screen-battle .hp-text span:first-child { font-size: 1.15rem; }
+  #screen-battle .status-pip { font-size: 0.78rem; padding: 3px 9px; }
+
+  /* Arena: bigger center "VS", room for floating numbers */
+  #screen-battle .arena::after {
+    font-size: 9rem;
+    opacity: 0.06;
+    letter-spacing: 0.18em;
+  }
+  #screen-battle .turn-banner span {
+    font-size: 2.6rem;
+    padding: 0.4em 1.6em;
+  }
+  #screen-battle .float-num { font-size: 3rem; }
+  #screen-battle .float-num.crit { font-size: 4rem; }
+  #screen-battle .combat-log {
+    bottom: 14px; left: 14px; right: 14px;
+    max-height: 50%;
+  }
+  #screen-battle .log-line { font-size: 0.95rem; padding: 7px 14px; }
+
+  /* Defense panel uses the wider sidebar elegantly */
+  #screen-battle .defense-prompt { font-size: 1rem; padding: 10px 4px; }
+  #screen-battle .defense-dice-row { padding: 8px 0 12px; }
+  #screen-battle .defense-dice-row .def-die {
+    width: 56px; height: 56px;
+    border-radius: 11px;
+    font-size: 1.9rem;
+  }
+  #screen-battle .defense-option { padding: 12px 14px; }
+  #screen-battle .defense-option .name { font-size: 1rem; }
+  #screen-battle .defense-option .desc { font-size: 0.82rem; }
+
+  /* Quit button repositioned for desktop sidebar */
+  #screen-battle .btn-quit {
+    top: 14px;
+    right: 14px;
+  }
+}
+
+/* Wide desktop: bump font for very large screens */
+@media (min-width: 1400px) {
+  #screen-battle .die { width: 84px; height: 84px; }
+  #screen-battle .die-face { font-size: 3rem; }
+  #screen-battle .turn-banner span { font-size: 3rem; }
+}
