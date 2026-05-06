@@ -207,6 +207,7 @@
     Game.stats = { abilitiesUsed: 0, totalDamage: 0, biggestHit: 0, turnsPlayed: 0 };
     UI.$('#combat-log').innerHTML = '';
     UI.resetHpTracking();
+    UI.showOffenseZone();
     UI.showScreen('screen-battle');
     UI.updatePlayerBar('p1', Game.p1);
     UI.updatePlayerBar('p2', Game.p2);
@@ -386,11 +387,9 @@
       defender.statuses = defender.statuses.filter(s => s.kind !== 'mark');
     }
 
-    // Defense — resolve mechanics, but defer the visuals so they appear *during* the attack travel
+    // Defense — split into passive resolution (dodge/guard) then chosen defense
     let dodged = false;
     let guardAbsorbed = 0;
-    let defRolls = null;
-    let defBlocked = 0;
     if (dmg > 0) {
       const dodge = defender.statuses.find(s => s.kind === 'dodge');
       if (dodge && Math.random() < 0.5) {
@@ -407,84 +406,147 @@
           if (guard.amount <= 0) defender.statuses = defender.statuses.filter(s => s !== guard);
           UI.log(`🛡 Guard absorbs ${guardAbsorbed}`, 'crit');
         }
-        // Only roll defense dice if there's still incoming damage to defend
-        if (dmg > 0) {
-          defRolls = [rollDie(), rollDie(), rollDie()];
-          defBlocked = defRolls.filter(v => v >= 4).length;
-          const actuallyBlocked = Math.min(dmg, defBlocked);
-          dmg = Math.max(0, dmg - defBlocked);
-          if (actuallyBlocked > 0) {
-            UI.log(`<b>${defender.name}</b> defends [${defRolls.join(', ')}] — blocks ${actuallyBlocked}`);
-          } else {
-            UI.log(`<b>${defender.name}</b> defends [${defRolls.join(', ')}] — no blocks`);
-          }
-        }
       } else {
-        // Undefendable strike — show the pierce indicator
         UI.log(`✦ Undefendable!`, 'crit');
       }
     }
 
-    // 3) Travel: projectile or slash, plus defensive visuals shown during travel
+    // Travel: projectile or slash
     const projDef = PROJECTILE_HEROES[attacker.hero.id];
     const hasProjectile = (ability.dmg || 0) > 0 && projDef;
-
     if (hasProjectile) {
       setTimeout(() => UI.projectile(aKey, dKey, projDef.glyph, projDef.color), 200);
     }
-
-    // Stage defensive visuals at the defender ~halfway through travel
-    if (ability.dmg > 0) {
-      if (dodged) {
-        // Dodge visual happens with impact below
-      } else if (ability.undefendable) {
-        setTimeout(() => UI.showPierce(dKey), 250);
-      } else if (defRolls) {
-        setTimeout(() => UI.showDefenseDice(dKey, defRolls, { guardBlocked: guardAbsorbed }), 220);
-      } else if (guardAbsorbed > 0) {
-        setTimeout(() => UI.showGuardAbsorb(dKey, guardAbsorbed), 250);
-      }
-    }
-
     // Sync persistent guard badge on the defender's avatar after possible consumption
     UI.setGuardBadge(dKey, defender.statuses.some(s => s.kind === 'guard' && s.amount > 0));
 
-    // 4) Impact (delayed enough for defense dice to be readable)
-    const impactDelay = ability.dmg > 0 && !dodged ? 1100 : 600;
-    setTimeout(() => {
-      // Impact: slash/burst/dodge
-      if (dodged) {
-        UI.animateDodge(dKey);
-        UI.floatNumber(dKey, 'DODGE', 'miss');
-        GameAudio.miss();
-      } else if (dmg > 0) {
-        UI.impactEffect(dmg >= 8 ? 'burst' : 'slash');
-        UI.flashHit(dKey);
-        UI.animateRecoil(dKey);
-        UI.shakeArena(dmg >= 8);
-        if (dmg >= 8) UI.flashVignette('crit');
-        defender.hp -= dmg;
-        Game.stats.totalDamage += (attacker === Game.p1 ? dmg : 0);
-        Game.stats.biggestHit = Math.max(Game.stats.biggestHit, dmg);
-        UI.floatNumber(dKey, '-' + dmg, dmg >= 8 ? 'crit' : 'dmg');
-        if (dmg >= 8) GameAudio.crit(); else GameAudio.hit(dmg >= 5);
-        UI.log(`<b>${defender.name}</b> takes ${dmg} damage`, 'foe');
-      } else if (ability.dmg) {
-        UI.floatNumber(dKey, 'BLOCKED', 'miss');
-        GameAudio.miss();
+    // Decide whether the defender chooses or auto-resolves.
+    const willChooseDefense = (
+      dmg > 0 && !dodged && !ability.undefendable
+    );
+
+    if (willChooseDefense) {
+      const defRolls = [rollDie(), rollDie(), rollDie()];
+      const triggers = detectDefenseCombos(defRolls);
+      const defenderIsHuman = isHumanFor(defender);
+
+      const proceed = (chosenDefense) => {
+        // Snapshot to detect side effects (counter dmg, self-heal)
+        const dHpBefore = defender.hp;
+        const aHpBefore = attacker.hp;
+        const reduced = Math.max(0, chosenDefense.apply(defRolls, dmg, defender, attacker));
+        const blocked = dmg - reduced;
+        const counter = Math.max(0, aHpBefore - attacker.hp);
+        const selfHeal = Math.max(0, defender.hp - dHpBefore);
+        if (blocked > 0) {
+          UI.log(`<b>${defender.name}</b> uses <b>${chosenDefense.name}</b> [${defRolls.join(', ')}] — blocks ${blocked}`, 'crit');
+        } else {
+          UI.log(`<b>${defender.name}</b> uses <b>${chosenDefense.name}</b> [${defRolls.join(', ')}] — no blocks`);
+        }
+        const summary = chosenDefense.summary
+          ? chosenDefense.summary(defRolls, dmg)
+          : (blocked > 0 ? `🛡 ${blocked} BLOCKED` : '✗ NO BLOCK');
+        UI.showDefenseDice(dKey, defRolls, {
+          guardBlocked: guardAbsorbed,
+          customLabel: summary,
+        });
+        // Visualize defense side effects
+        if (counter > 0) {
+          setTimeout(() => {
+            UI.flashHit(aKey);
+            UI.animateRecoil(aKey);
+            UI.floatNumber(aKey, '-' + counter, 'dmg');
+            UI.shakeArena(false);
+            GameAudio.hit(false);
+          }, 400);
+          UI.log(`<b>${defender.name}</b> counters for ${counter}`, 'crit');
+        }
+        if (selfHeal > 0) {
+          setTimeout(() => {
+            UI.animateHeal(dKey);
+            UI.floatNumber(dKey, '+' + selfHeal, 'heal');
+            UI.flashVignette('heal');
+            GameAudio.heal();
+          }, 450);
+          UI.log(`<b>${defender.name}</b> heals ${selfHeal}`, 'crit');
+        }
+        UI.updatePlayerBar('p1', Game.p1);
+        UI.updatePlayerBar('p2', Game.p2);
+        if (checkWinner()) return;
+        finalizeImpact(reduced);
+      };
+
+      if (defenderIsHuman) {
+        // Pause and render defense panel; resume when player picks
+        UI.renderDefensePanel({
+          defender, attacker, ability, dmg,
+          rolls: defRolls, triggers,
+          onChoose: (choice) => proceed(choice),
+        });
+      } else {
+        // AI auto-picks; show as a brief popup-only flow (no panel)
+        const choice = AI.pickDefense(defender, attacker, defRolls, dmg);
+        // Small delay so player sees the AI "thinking"
+        setTimeout(() => proceed(choice), 350);
       }
-      UI.updatePlayerBar('p1', Game.p1);
-      UI.updatePlayerBar('p2', Game.p2);
+    } else {
+      // No defense choice (dodge auto-fired, undefendable, or no damage). Show pierce/dodge visual then impact.
+      if (ability.dmg > 0) {
+        if (dodged) {
+          // Visual handled in finalizeImpact
+        } else if (ability.undefendable) {
+          setTimeout(() => UI.showPierce(dKey), 250);
+        } else if (guardAbsorbed > 0 && dmg === 0) {
+          setTimeout(() => UI.showGuardAbsorb(dKey, guardAbsorbed), 250);
+        }
+      }
+      finalizeImpact(dmg, { dodged });
+    }
 
-      if (checkWinner()) return;
+    // ---- Inner: actually resolve the impact ----
+    function finalizeImpact(finalDmg, opts = {}) {
+      const wasDodged = opts.dodged || (finalDmg === 0 && dodged);
+      // Delay so visuals (defense dice popup, pierce, projectile) read first
+      const delay = ability.dmg > 0 && !wasDodged ? 1000 : 600;
+      setTimeout(() => {
+        if (wasDodged) {
+          UI.animateDodge(dKey);
+          UI.floatNumber(dKey, 'DODGE', 'miss');
+          GameAudio.miss();
+        } else if (finalDmg > 0) {
+          UI.impactEffect(finalDmg >= 8 ? 'burst' : 'slash');
+          UI.flashHit(dKey);
+          UI.animateRecoil(dKey);
+          UI.shakeArena(finalDmg >= 8);
+          if (finalDmg >= 8) UI.flashVignette('crit');
+          defender.hp -= finalDmg;
+          Game.stats.totalDamage += (attacker === Game.p1 ? finalDmg : 0);
+          Game.stats.biggestHit = Math.max(Game.stats.biggestHit, finalDmg);
+          UI.floatNumber(dKey, '-' + finalDmg, finalDmg >= 8 ? 'crit' : 'dmg');
+          if (finalDmg >= 8) GameAudio.crit(); else GameAudio.hit(finalDmg >= 5);
+          UI.log(`<b>${defender.name}</b> takes ${finalDmg} damage`, 'foe');
+        } else if (ability.dmg) {
+          UI.floatNumber(dKey, 'BLOCKED', 'miss');
+          GameAudio.miss();
+        }
+        UI.updatePlayerBar('p1', Game.p1);
+        UI.updatePlayerBar('p2', Game.p2);
 
-      Game.dice.rollsLeft = 0;
-      Game.triggers = new Set();
-      UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
-      UI.renderDiceTray(Game.dice, { canLock: false });
-      UI.$('#rolls-left').textContent = 0;
-      setTimeout(endTurn, 1000);
-    }, impactDelay);
+        if (checkWinner()) return;
+
+        Game.dice.rollsLeft = 0;
+        Game.triggers = new Set();
+        UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
+        UI.renderDiceTray(Game.dice, { canLock: false });
+        UI.$('#rolls-left').textContent = 0;
+        setTimeout(endTurn, 1000);
+      }, delay);
+    }
+  }
+
+  function isHumanFor(player) {
+    if (Game.mode === 'local') return true;
+    return player === Game.p1;
   }
 
   // ===== End turn =====

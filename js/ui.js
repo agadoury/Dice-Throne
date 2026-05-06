@@ -330,11 +330,13 @@ const UI = (function () {
 
     const label = document.createElement('div');
     const blocked = rolls.filter(v => v >= 4).length;
-    if (opts.guardBlocked) {
-      label.className = 'def-label blocked';
+    label.className = 'def-label blocked';
+    if (opts.customLabel) {
+      label.textContent = opts.customLabel;
+      if (opts.customLabel.startsWith('✗')) label.className = 'def-label failed';
+    } else if (opts.guardBlocked) {
       label.textContent = `🛡 GUARD ${opts.guardBlocked}` + (blocked > 0 ? ` · DEF ${blocked}` : '');
     } else if (blocked > 0) {
-      label.className = 'def-label blocked';
       label.textContent = `🛡 BLOCKED ${blocked}`;
     } else {
       label.className = 'def-label failed';
@@ -384,6 +386,90 @@ const UI = (function () {
     root.appendChild(el);
     setTimeout(() => el.remove(), 1500);
   }
+
+  // Snapshot defender/attacker, run defense.apply, then restore so previews
+  // don't mutate game state.
+  function previewDefense(defense, rolls, dmg, defender, attacker) {
+    const dHp = defender.hp;
+    const aHp = attacker.hp;
+    const dSt = defender.statuses.map(s => ({ ...s }));
+    const aSt = attacker.statuses.map(s => ({ ...s }));
+    let result;
+    try { result = defense.apply(rolls, dmg, defender, attacker); }
+    catch (e) { result = dmg; }
+    defender.hp = dHp;
+    attacker.hp = aHp;
+    defender.statuses = dSt;
+    attacker.statuses = aSt;
+    return result;
+  }
+
+  // ===== Defense panel (player-controlled defense) =====
+  function showOffenseZone() {
+    $('#offense-zone').hidden = false;
+    $('#defense-zone').hidden = true;
+  }
+  function showDefenseZone() {
+    $('#offense-zone').hidden = true;
+    $('#defense-zone').hidden = false;
+  }
+
+  // Render the defense choice panel and call onChoose with the selected option.
+  function renderDefensePanel({ defender, attacker, ability, dmg, rolls, triggers, onChoose }) {
+    showDefenseZone();
+    $('#def-attacker').textContent = attacker.name;
+    $('#def-ability-name').textContent = ability.name;
+    $('#def-incoming').textContent = dmg;
+    $('#def-pierce').hidden = !ability.undefendable;
+
+    // Render rolled defense dice (with green/fail styling)
+    const diceRow = $('#def-dice-row');
+    diceRow.innerHTML = '';
+    rolls.forEach((v, i) => {
+      const die = document.createElement('div');
+      die.className = 'def-die ' + (v >= 4 ? 'block' : 'fail');
+      die.textContent = v;
+      die.style.setProperty('--def-delay', (i * 0.07).toFixed(2) + 's');
+      die.style.setProperty('--def-pulse-delay', (0.5 + i * 0.07).toFixed(2) + 's');
+      diceRow.appendChild(die);
+    });
+
+    // Render defensive options — Brace + any combo-matched hero defenses
+    const opts = $('#def-options');
+    opts.innerHTML = '';
+    defender.hero.defenses.forEach(d => {
+      const can = triggers.has(d.combo);
+      const btn = document.createElement('button');
+      const isStandard = d.combo === 'd-any';
+      btn.className = 'defense-option' + (can ? ' available' : '') + (isStandard ? ' standard' : '');
+      btn.disabled = !can;
+      // Preview damage (sandbox to undo any side effects in apply)
+      const result = previewDefense(d, rolls, dmg, defender, attacker);
+      const reducedTo = Math.max(0, result);
+      const blocks = dmg - reducedTo;
+      let badge;
+      if (reducedTo === 0) badge = `<span class="reduce full">BLOCK ALL</span>`;
+      else if (blocks > 0) badge = `<span class="reduce">-${blocks}</span>`;
+      else badge = `<span class="reduce" style="background:linear-gradient(180deg,#c0392b,#7a0010)">TAKE ${dmg}</span>`;
+      btn.innerHTML = `
+        <div class="name"><span>${d.name}</span>${badge}</div>
+        <span class="combo">${(window.DEF_COMBO_LABEL && window.DEF_COMBO_LABEL[d.combo]) || ''}</span>
+        <div class="desc">${d.desc}</div>
+      `;
+      // We compute reducedTo here using a *trial* apply that mutates defender/attacker — undo that
+      // by re-cloning state would be heavy. Instead, store the original values and pass the
+      // chosen option to onChoose without applying side-effects in preview. We re-apply on click.
+      btn.addEventListener('click', () => {
+        if (!can) return;
+        showOffenseZone();
+        onChoose(d);
+      });
+      opts.appendChild(btn);
+    });
+  }
+  // NOTE: the preview value above can mutate defender/attacker via apply() side-effects.
+  // To prevent that, we sandbox each preview through a clone and restore.
+  // Implemented by re-rendering with a sandboxed clone on each call.
 
   // Toggle the persistent guard badge on the defender's avatar.
   function setGuardBadge(targetKey, on) {
@@ -456,6 +542,7 @@ const UI = (function () {
     animateAttack, animateRecoil, animateDodge, animateHeal,
     shakeArena, flashVignette, impactEffect, projectile,
     showDefenseDice, showGuardAbsorb, showPierce, setGuardBadge,
+    showOffenseZone, showDefenseZone, renderDefensePanel,
   };
 })();
 

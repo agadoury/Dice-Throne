@@ -242,6 +242,92 @@ const HEROES = [
   },
 ];
 
+/* ============================================================
+   Defensive abilities — chosen by the defender after rolling
+   3 defense dice. Each defense returns the damage that gets
+   through after the defense is applied, and may apply side
+   effects via mutating defender/attacker.
+   ============================================================ */
+
+// Helper: standard "every 4+ blocks 1" reduction.
+function brace(rolls, dmg) {
+  const blocks = rolls.filter(v => v >= 4).length;
+  return { dmg: Math.max(0, dmg - blocks), blocks };
+}
+
+const STANDARD_DEFENSE = {
+  name: 'Brace',
+  combo: 'd-any',
+  desc: 'Each die ≥4 blocks 1 damage.',
+  apply: (rolls, dmg) => brace(rolls, dmg).dmg,
+  summary: (rolls, dmg) => {
+    const r = brace(rolls, dmg);
+    return r.blocks > 0 ? `🛡 ${r.blocks} BLOCKED` : '✗ NO BLOCK';
+  },
+};
+
+// Inject defenses into the hero objects after they're declared.
+HEROES.forEach(h => h.defenses = []);
+
+function defForHero(id, ...defs) {
+  const hero = HEROES.find(h => h.id === id);
+  hero.defenses = [STANDARD_DEFENSE, ...defs];
+}
+
+defForHero('barbarian',
+  { name: 'Iron Skin', combo: 'd-pair', desc: 'Block all but 1 damage.',
+    apply: (_r, dmg) => dmg > 0 ? 1 : 0,
+    summary: () => '🛡 IRON SKIN' },
+  { name: 'Tank Hit', combo: 'd-three', desc: 'Block all damage.',
+    apply: () => 0,
+    summary: () => '🛡 TANK HIT' },
+);
+
+defForHero('moon-elf',
+  { name: 'Sidestep', combo: 'd-pair', desc: 'Reduce damage by 2.',
+    apply: (_r, dmg) => Math.max(0, dmg - 2),
+    summary: () => '💨 SIDESTEP' },
+  { name: 'Acrobat Dodge', combo: 'd-three', desc: 'Fully evade the attack.',
+    apply: () => 0,
+    summary: () => '💨 ACROBAT DODGE' },
+);
+
+defForHero('pyromancer',
+  { name: 'Heat Shield', combo: 'd-pair', desc: 'Block 3; burn attacker (1 ×2t).',
+    apply: (_r, dmg, def, atk) => { addStatus(atk, 'burn', 1, 2); return Math.max(0, dmg - 3); },
+    summary: () => '🔥 HEAT SHIELD' },
+  { name: 'Phoenix Cloak', combo: 'd-three', desc: 'Block all and heal 2.',
+    apply: (_r, _dmg, def) => { def.hp = Math.min(def.hpMax, def.hp + 2); return 0; },
+    summary: () => '🔥 PHOENIX CLOAK' },
+);
+
+defForHero('shadow-thief',
+  { name: 'Vanish', combo: 'd-pair', desc: 'Block all and gain Dodge (1t).',
+    apply: (_r, _dmg, def) => { addStatus(def, 'dodge', 1, 1); return 0; },
+    summary: () => '💨 VANISH' },
+  { name: 'Counter Stab', combo: 'd-three', desc: 'Block all; deal 2 to attacker.',
+    apply: (_r, _dmg, def, atk) => { atk.hp -= 2; return 0; },
+    summary: () => '🗡 COUNTER STAB' },
+);
+
+defForHero('monk',
+  { name: 'Deflect', combo: 'd-pair', desc: 'Reduce damage to 1.',
+    apply: (_r, dmg) => dmg > 0 ? 1 : 0,
+    summary: () => '🧘 DEFLECT' },
+  { name: 'Inner Calm', combo: 'd-three', desc: 'Block all and heal 1.',
+    apply: (_r, _dmg, def) => { def.hp = Math.min(def.hpMax, def.hp + 1); return 0; },
+    summary: () => '🧘 INNER CALM' },
+);
+
+defForHero('paladin',
+  { name: 'Holy Shield', combo: 'd-pair', desc: 'Block up to 4 damage.',
+    apply: (_r, dmg) => Math.max(0, dmg - 4),
+    summary: () => '⚔ HOLY SHIELD' },
+  { name: 'Wall of Light', combo: 'd-three', desc: 'Block all damage.',
+    apply: () => 0,
+    summary: () => '⚔ WALL OF LIGHT' },
+);
+
 /* Mutate-helper: add or stack a status on a player. */
 function addStatus(player, kind, amount, turns) {
   const existing = player.statuses.find(s => s.kind === kind);
@@ -257,3 +343,4 @@ window.HEROES = HEROES;
 window.COMBO = COMBO;
 window.COMBO_LABEL = COMBO_LABEL;
 window.addStatus = addStatus;
+window.STANDARD_DEFENSE = STANDARD_DEFENSE;

@@ -108,13 +108,25 @@
 
     <!-- Dice + Actions -->
     <div class="action-zone">
-      <div class="dice-tray" id="dice-tray"></div>
-      <div class="roll-controls">
-        <span class="rolls-left">Rolls: <b id="rolls-left">3</b></span>
-        <button class="btn btn-roll" id="btn-roll">Roll Dice</button>
-        <button class="btn btn-end" id="btn-end-turn">End Turn</button>
+      <div class="offense-zone" id="offense-zone">
+        <div class="dice-tray" id="dice-tray"></div>
+        <div class="roll-controls">
+          <span class="rolls-left">Rolls: <b id="rolls-left">3</b></span>
+          <button class="btn btn-roll" id="btn-roll">Roll Dice</button>
+          <button class="btn btn-end" id="btn-end-turn">End Turn</button>
+        </div>
+        <div class="abilities" id="abilities"></div>
       </div>
-      <div class="abilities" id="abilities"></div>
+      <div class="defense-zone" id="defense-zone" hidden>
+        <div class="defense-prompt">
+          <b id="def-attacker">Foe</b> uses
+          <b id="def-ability-name">?</b>
+          — <span class="incoming"><span id="def-incoming">0</span> incoming</span>
+          <span class="pierce-tag" id="def-pierce" hidden>✦ PIERCE</span>
+        </div>
+        <div class="defense-dice-row" id="def-dice-row"></div>
+        <div class="defense-options" id="def-options"></div>
+      </div>
     </div>
 
     <!-- Bottom: you -->

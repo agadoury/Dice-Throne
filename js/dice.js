@@ -77,6 +77,44 @@ const COMBO_RANK = {
   [COMBO.ODD_ALL]: 3,
 };
 
+/* ---- 3-die defensive combos ---- */
+const DEF_COMBO = {
+  ANY: 'd-any',
+  PAIR: 'd-pair',
+  THREE: 'd-three',
+  STRAIGHT: 'd-straight',
+  HIGH: 'd-high',     // sum >= 12
+  ALL_HIGH: 'd-allhigh', // every die >= 4
+};
+
+const DEF_COMBO_LABEL = {
+  [DEF_COMBO.ANY]: 'Any roll',
+  [DEF_COMBO.PAIR]: 'Pair',
+  [DEF_COMBO.THREE]: '3 of a kind',
+  [DEF_COMBO.STRAIGHT]: 'Straight',
+  [DEF_COMBO.HIGH]: 'Sum 12+',
+  [DEF_COMBO.ALL_HIGH]: 'All 4+',
+};
+
+function detectDefenseCombos(values) {
+  const triggers = new Set([DEF_COMBO.ANY]);
+  if (!values.every(v => v > 0)) return triggers;
+  const counts = {};
+  values.forEach(v => counts[v] = (counts[v] || 0) + 1);
+  const top = Math.max(...Object.values(counts));
+  if (top >= 2) triggers.add(DEF_COMBO.PAIR);
+  if (top >= 3) triggers.add(DEF_COMBO.THREE);
+  const uniq = [...new Set(values)].sort((a, b) => a - b);
+  if (uniq.length === 3 && uniq[2] - uniq[0] === 2) triggers.add(DEF_COMBO.STRAIGHT);
+  if (values.reduce((a, b) => a + b, 0) >= 12) triggers.add(DEF_COMBO.HIGH);
+  if (values.every(v => v >= 4)) triggers.add(DEF_COMBO.ALL_HIGH);
+  return triggers;
+}
+
+window.DEF_COMBO = DEF_COMBO;
+window.DEF_COMBO_LABEL = DEF_COMBO_LABEL;
+window.detectDefenseCombos = detectDefenseCombos;
+
 window.NUM_DICE = NUM_DICE;
 window.MAX_ROLLS = MAX_ROLLS;
 window.rollDie = rollDie;

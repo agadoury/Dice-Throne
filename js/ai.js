@@ -76,7 +76,48 @@ const AI = (function () {
     return scored[0]?.a || hero.abilities.find(a => a.combo === COMBO.ANY);
   }
 
-  return { chooseLocks, shouldStopRolling, pickAbility };
+  // Pick the best defense for the AI given rolls + incoming damage.
+  // Strategy: prefer the one that minimizes resulting damage, with small
+  // bonuses for utility (counter, dodge, heal, return-burn).
+  function pickDefense(defender, attacker, rolls, dmg) {
+    const triggers = detectDefenseCombos(rolls);
+    const choices = defender.hero.defenses.filter(d => triggers.has(d.combo));
+
+    function snapshotApply(d) {
+      // Sandbox apply so we don't mutate state during scoring
+      const dHp = defender.hp;
+      const aHp = attacker.hp;
+      const dSt = defender.statuses.map(s => ({ ...s }));
+      const aSt = attacker.statuses.map(s => ({ ...s }));
+      let result;
+      try { result = d.apply(rolls, dmg, defender, attacker); } catch (e) { result = dmg; }
+      const aHpAfter = attacker.hp;
+      const dHpAfter = defender.hp;
+      const counterDamage = aHp - aHpAfter;
+      const selfHeal = dHpAfter - dHp;
+      defender.hp = dHp;
+      attacker.hp = aHp;
+      defender.statuses = dSt;
+      attacker.statuses = aSt;
+      return { result, counterDamage, selfHeal };
+    }
+
+    const scored = choices.map(d => {
+      const { result, counterDamage, selfHeal } = snapshotApply(d);
+      // Lower is better for damage taken; bonus for counter / heal
+      const damageTaken = Math.max(0, result);
+      let score = -damageTaken * 2;
+      score += counterDamage * 1.4;
+      score += selfHeal * 1.2;
+      // Bias slightly toward special defenses when they actually help
+      if (d.combo !== 'd-any' && damageTaken < dmg) score += 0.5;
+      return { d, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0]?.d || STANDARD_DEFENSE;
+  }
+
+  return { chooseLocks, shouldStopRolling, pickAbility, pickDefense };
 })();
 
 window.AI = AI;
