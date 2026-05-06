@@ -376,6 +376,54 @@ html, body {
 .stat b { display: block; color: var(--ink-mute); font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; }
 .stat i { font-style: normal; color: var(--gold); font-weight: 700; }
 
+.hero-dice-preview {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 8px 4px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px dashed rgba(255,255,255,0.08);
+}
+.hero-dice-preview .preview-die {
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  background: radial-gradient(circle at 30% 25%, #fff, #d8d8e8 65%);
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: #1a1a2e;
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.7),
+    inset 0 0 0 1px var(--die-tint, rgba(0,0,0,0.05));
+  position: relative;
+  overflow: hidden;
+}
+.hero-dice-preview .preview-die::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 100%, var(--die-tint, transparent), transparent 60%);
+  opacity: 0.18;
+  pointer-events: none;
+}
+.hero-dice-preview .preview-die span {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));
+}
+.hero-dice-preview .preview-label {
+  flex: 1 1 100%;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin-top: 2px;
+  margin-bottom: 4px;
+  margin-right: 4px;
+}
+
 .hero-abilities {
   list-style: none;
   margin: 0;
@@ -904,19 +952,27 @@ html, body {
   gap: 5px;
 }
 .def-die {
-  width: 28px; height: 28px;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  width: 32px; height: 32px;
+  border-radius: 7px;
+  font-size: 1rem;
   font-weight: 900;
   display: grid;
   place-items: center;
-  font-variant-numeric: tabular-nums;
-  background: linear-gradient(180deg, #fff, #d8d8e8);
+  background: radial-gradient(circle at 30% 25%, #fff, #d8d8e8 65%);
   color: #1a1a2e;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.7);
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.7),
+    inset 0 0 0 1px var(--die-tint, rgba(0,0,0,0.05));
   animation: defDieRoll 0.55s cubic-bezier(.36,.07,.19,1) both;
   animation-delay: var(--def-delay, 0s);
   position: relative;
+}
+.def-face {
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));
 }
 .def-die.block {
   background: linear-gradient(180deg, #6cf09a, #22c55e);
@@ -1107,9 +1163,9 @@ html, body {
   min-height: 40px;
 }
 .defense-dice-row .def-die {
-  width: 38px; height: 38px;
-  font-size: 1.1rem;
-  border-radius: 8px;
+  width: 44px; height: 44px;
+  font-size: 1.5rem;
+  border-radius: 9px;
   animation: defDieRoll 0.5s cubic-bezier(.36,.07,.19,1) both;
 }
 .defense-options {
@@ -1203,30 +1259,51 @@ html, body {
   min-height: 64px;
 }
 .die {
-  width: 54px; height: 54px;
+  width: 56px; height: 56px;
   border-radius: 12px;
-  background: linear-gradient(145deg, #fff 0%, #d8d8e8 100%);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.95), rgba(232,232,242,1) 65%);
   color: #1a1a2e;
   display: grid;
   place-items: center;
   position: relative;
   cursor: pointer;
   font-weight: 800;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.5), inset 0 -3px 0 rgba(0,0,0,0.18), inset 0 2px 0 rgba(255,255,255,0.7);
+  box-shadow:
+    0 4px 8px rgba(0,0,0,0.5),
+    inset 0 -3px 0 rgba(0,0,0,0.18),
+    inset 0 2px 0 rgba(255,255,255,0.85),
+    inset 0 0 0 1px var(--die-tint, rgba(0,0,0,0.05));
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   flex: 0 0 auto;
+  overflow: hidden;
+}
+.die::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 100%, var(--die-tint, transparent) 0%, transparent 65%);
+  opacity: 0.18;
+  pointer-events: none;
 }
 .die.locked {
-  background: linear-gradient(145deg, #ffd97a, #ffae2b);
-  box-shadow: 0 0 14px rgba(255,174,43,0.7), inset 0 -3px 0 rgba(0,0,0,0.2);
+  background:
+    radial-gradient(circle at 30% 25%, #fff3c4, #ffd97a 60%, #ffae2b 100%);
+  box-shadow:
+    0 0 16px rgba(255,174,43,0.75),
+    inset 0 -3px 0 rgba(0,0,0,0.22),
+    inset 0 2px 0 rgba(255,255,255,0.7);
   transform: translateY(-3px);
 }
+.die.locked::before { opacity: 0; }
 .die.empty {
   background: rgba(255,255,255,0.04);
   border: 2px dashed rgba(255,255,255,0.15);
   color: var(--ink-mute);
   box-shadow: none;
 }
+.die.empty::before { opacity: 0; }
 .die.rolling {
   animation: rollDie 0.85s cubic-bezier(.32,.78,.36,1) both;
   animation-delay: var(--die-delay, 0s);
@@ -1245,24 +1322,26 @@ html, body {
   40%  { transform: translateY(-8px) scale(1.12); box-shadow: 0 0 24px rgba(255,174,43,1); }
   100% { transform: translateY(-3px) scale(1); }
 }
-.die-pips {
-  display: grid;
-  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-  width: 78%; height: 78%;
-  gap: 2px;
-}
-.die-pips > div {
+.die-face {
+  position: relative;
+  z-index: 1;
+  font-size: 2rem;
+  line-height: 1;
   display: grid;
   place-items: center;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));
+  font-family: -apple-system, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.die-pip {
-  background: #1a1a2e;
-  border-radius: 50%;
-  width: 70%;
-  height: 70%;
-  box-shadow: inset 0 1px 1px rgba(0,0,0,0.6);
+.die.locked .die-face {
+  filter: drop-shadow(0 1px 0 rgba(120,60,0,0.35));
 }
-.die.locked .die-pip { background: #2a1700; }
+.die-empty {
+  font-size: 1.6rem;
+  color: var(--ink-mute);
+  opacity: 0.45;
+}
 
 .roll-controls {
   display: flex;

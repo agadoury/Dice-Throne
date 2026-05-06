@@ -101,6 +101,7 @@
     const styleEl = UI.$('#hero-style');
     const diffEl = UI.$('#hero-diff');
     const abilitiesEl = UI.$('#hero-abilities');
+    const dicePreview = UI.$('#hero-dice-preview');
     const confirm = UI.$('#btn-confirm-hero');
     if (!hero) {
       portrait.textContent = '?';
@@ -112,6 +113,7 @@
       styleEl.textContent = '—';
       diffEl.textContent = '—';
       abilitiesEl.innerHTML = '';
+      if (dicePreview) dicePreview.innerHTML = '';
       confirm.disabled = true;
       return;
     }
@@ -123,6 +125,14 @@
     hpEl.textContent = hero.hp;
     styleEl.textContent = hero.style;
     diffEl.textContent = hero.difficulty;
+    if (dicePreview) {
+      dicePreview.innerHTML = '<div class="preview-label">Dice Faces — low → high</div>' +
+        (hero.diceFaces || []).map((f, i) => `
+          <div class="preview-die" style="--die-tint:${hero.color}" title="${(hero.diceFaceNames || [])[i] || ''}">
+            <span>${f}</span>
+          </div>
+        `).join('');
+    }
     abilitiesEl.innerHTML = '';
     hero.abilities.forEach(a => {
       const li = document.createElement('li');
@@ -211,7 +221,7 @@
     UI.showScreen('screen-battle');
     UI.updatePlayerBar('p1', Game.p1);
     UI.updatePlayerBar('p2', Game.p2);
-    UI.renderDiceTray(Game.dice, { canLock: false });
+    UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
     UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
     UI.setActiveTurn(Game.current);
     UI.log(`<b>${Game.p1.name}</b> challenges <b>${Game.p2.name}</b>!`, 'crit');
@@ -230,7 +240,7 @@
     if (Game.over) return;
     UI.setActiveTurn(Game.current);
     Game.dice = newDiceState();
-    UI.renderDiceTray(Game.dice, { canLock: false });
+    UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
     UI.renderAbilities(activePlayer().hero, new Set(), onAbilityClick, isHumanTurn());
     UI.$('#rolls-left').textContent = Game.dice.rollsLeft;
     UI.$('#btn-end-turn').disabled = true;
@@ -299,6 +309,7 @@
     UI.renderDiceTray(Game.dice, {
       canLock: isHumanTurn() && Game.dice.rollsLeft > 0,
       onClick: toggleLock,
+      hero: activePlayer().hero,
     });
     UI.animateDiceRoll(Game.dice);
     setTimeout(() => GameAudio.diceLand(), 600);
@@ -320,6 +331,7 @@
     UI.renderDiceTray(Game.dice, {
       canLock: true,
       onClick: toggleLock,
+      hero: activePlayer().hero,
     });
     if (!wasLocked) UI.animateLockPulse(idx);
   }
@@ -449,6 +461,7 @@
         UI.showDefenseDice(dKey, defRolls, {
           guardBlocked: guardAbsorbed,
           customLabel: summary,
+          hero: defender.hero,
         });
         // Visualize defense side effects
         if (counter > 0) {
@@ -537,7 +550,7 @@
         Game.dice.rollsLeft = 0;
         Game.triggers = new Set();
         UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
-        UI.renderDiceTray(Game.dice, { canLock: false });
+        UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
         UI.$('#rolls-left').textContent = 0;
         setTimeout(endTurn, 1000);
       }, delay);
@@ -571,7 +584,7 @@
       if (Game.dice.rollsLeft === MAX_ROLLS) {
         GameAudio.diceRoll();
         rollDice(Game.dice);
-        UI.renderDiceTray(Game.dice, { canLock: false });
+        UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
         UI.animateDiceRoll(Game.dice);
         Game.triggers = detectCombos(Game.dice.values);
         UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, false);
@@ -590,12 +603,12 @@
 
       // Lock dice intelligently
       Game.dice.locked = AI.chooseLocks(Game.dice.values);
-      UI.renderDiceTray(Game.dice, { canLock: false });
+      UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
       setTimeout(() => {
         GameAudio.diceLock();
         GameAudio.diceRoll();
         rollDice(Game.dice);
-        UI.renderDiceTray(Game.dice, { canLock: false });
+        UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
         UI.animateDiceRoll(Game.dice);
         Game.triggers = detectCombos(Game.dice.values);
         UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, false);

@@ -55,6 +55,8 @@ const HEROES = [
     style: 'Aggro',
     difficulty: 'Easy',
     hp: 50,
+    diceFaces: ['💪', '⚔', '🪓', '🛡', '💥', '💀'],
+    diceFaceNames: ['Flex', 'Strike', 'Cleave', 'Brace', 'Smash', 'Slay'],
     abilities: [
       { name: 'Battle Cry', combo: COMBO.ANY, desc: 'Charge up. Next attack +2 dmg.',
         apply: (p) => addStatus(p, 'charge', 1, 1) },
@@ -83,6 +85,8 @@ const HEROES = [
     style: 'Ranged',
     difficulty: 'Medium',
     hp: 48,
+    diceFaces: ['🍃', '🏹', '✦', '🌙', '❄', '☀'],
+    diceFaceNames: ['Leaf', 'Bow', 'Star', 'Moon', 'Frost', 'Sun'],
     abilities: [
       { name: 'Moonlit Step', combo: COMBO.ANY, desc: 'Gain Dodge: 50% to evade next hit.',
         apply: (p) => addStatus(p, 'dodge', 1, 1) },
@@ -112,6 +116,8 @@ const HEROES = [
     style: 'DoT',
     difficulty: 'Medium',
     hp: 46,
+    diceFaces: ['✨', '🔥', '💥', '☄', '🌋', '🐉'],
+    diceFaceNames: ['Spark', 'Flame', 'Burst', 'Comet', 'Volcano', 'Dragon'],
     abilities: [
       { name: 'Spark', combo: COMBO.ANY, dmg: 1, desc: 'A flick of fire. Apply 1 burn.',
         apply: (p, f) => addStatus(f, 'burn', 1, 2) },
@@ -154,6 +160,8 @@ const HEROES = [
     style: 'Combo',
     difficulty: 'Hard',
     hp: 44,
+    diceFaces: ['🌫', '👁', '🗡', '🌑', '☠', '💀'],
+    diceFaceNames: ['Mist', 'Eye', 'Dagger', 'Shadow', 'Poison', 'Death'],
     abilities: [
       { name: 'Shadowstep', combo: COMBO.ANY, desc: 'Dodge + 1 charge.',
         apply: (p) => { addStatus(p, 'dodge', 1, 1); addStatus(p, 'charge', 1, 1); } },
@@ -187,6 +195,8 @@ const HEROES = [
     style: 'Balanced',
     difficulty: 'Medium',
     hp: 50,
+    diceFaces: ['☯', '👊', '🦶', '🌀', '⚡', '☸'],
+    diceFaceNames: ['Calm', 'Fist', 'Kick', 'Spiral', 'Ki', 'Dharma'],
     abilities: [
       { name: 'Inner Focus', combo: COMBO.ANY, desc: 'Heal 2 + Guard 1.',
         apply: (p) => { p.hp = Math.min(p.hpMax, p.hp + 2); addStatus(p, 'guard', 1, 1); } },
@@ -219,6 +229,8 @@ const HEROES = [
     style: 'Tank',
     difficulty: 'Easy',
     hp: 54,
+    diceFaces: ['⚜', '🛡', '⚔', '✦', '☀', '✚'],
+    diceFaceNames: ['Crest', 'Aegis', 'Sword', 'Star', 'Dawn', 'Cross'],
     abilities: [
       { name: 'Lay on Hands', combo: COMBO.ANY, desc: 'Heal 3 HP.',
         apply: (p) => { p.hp = Math.min(p.hpMax, p.hp + 3); } },

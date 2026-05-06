@@ -23,34 +23,25 @@ const UI = (function () {
 
   /* ---- Dice rendering ---- */
 
-  // Pip layouts for each face value (1-6)
-  const PIP_MAP = {
-    1: [4],
-    2: [0, 8],
-    3: [0, 4, 8],
-    4: [0, 2, 6, 8],
-    5: [0, 2, 4, 6, 8],
-    6: [0, 2, 3, 5, 6, 8],
-  };
-
-  function renderDie(value) {
-    if (value <= 0) return '<span style="color:#888;font-size:1.4rem">·</span>';
-    const pips = PIP_MAP[value] || [];
-    const cells = Array(9).fill('').map((_, i) =>
-      `<div>${pips.includes(i) ? '<div class="die-pip"></div>' : ''}</div>`
-    ).join('');
-    return `<div class="die-pips">${cells}</div>`;
+  // Render a die face for a hero. Each hero has 6 themed glyphs (low-to-high).
+  function renderDie(value, hero) {
+    if (value <= 0) return '<span class="die-empty">·</span>';
+    const faces = hero?.diceFaces;
+    const symbol = faces ? faces[value - 1] : value;
+    const name = hero?.diceFaceNames ? hero.diceFaceNames[value - 1] : '';
+    return `<div class="die-face" data-value="${value}" title="${name}">${symbol}</div>`;
   }
 
-  function renderDiceTray(state, { canLock, onClick }) {
+  function renderDiceTray(state, { canLock, onClick, hero }) {
     const tray = $('#dice-tray');
     tray.innerHTML = '';
     state.values.forEach((v, i) => {
       const el = document.createElement('div');
       el.className = 'die';
+      if (hero?.color) el.style.setProperty('--die-tint', hero.color);
       if (v === 0) el.classList.add('empty');
       if (state.locked[i]) el.classList.add('locked');
-      el.innerHTML = renderDie(v);
+      el.innerHTML = renderDie(v, hero);
       el.dataset.idx = i;
       if (canLock && v > 0) {
         el.addEventListener('click', () => onClick && onClick(i));
@@ -309,24 +300,31 @@ const UI = (function () {
     popup.style.transform = 'translateX(0)';
   }
 
+  // Build a small defense-die element with hero face and block/fail styling.
+  function buildDefDie(value, hero, idx, total) {
+    const die = document.createElement('div');
+    die.className = 'def-die ' + (value >= 4 ? 'block' : 'fail');
+    die.style.setProperty('--def-delay', (idx * 0.08).toFixed(2) + 's');
+    die.style.setProperty('--def-pulse-delay', (0.55 + idx * 0.08).toFixed(2) + 's');
+    if (hero?.color) die.style.setProperty('--die-tint', hero.color);
+    const sym = hero?.diceFaces ? hero.diceFaces[value - 1] : value;
+    const name = hero?.diceFaceNames ? hero.diceFaceNames[value - 1] : '';
+    die.innerHTML = `<span class="def-face" title="${name}">${sym}</span>`;
+    return die;
+  }
+
   // Show the auto-rolled defense dice with their values and which ones blocked.
   function showDefenseDice(targetKey, rolls, opts = {}) {
     const root = $('#floating-fx');
     if (!root) return;
+    const hero = opts.hero;
     const popup = document.createElement('div');
     popup.className = 'defense-popup';
     positionNearPortrait(targetKey, popup);
 
     const row = document.createElement('div');
     row.className = 'def-row';
-    rolls.forEach((v, i) => {
-      const die = document.createElement('div');
-      die.className = 'def-die ' + (v >= 4 ? 'block' : 'fail');
-      die.textContent = v;
-      die.style.setProperty('--def-delay', (i * 0.08).toFixed(2) + 's');
-      die.style.setProperty('--def-pulse-delay', (0.55 + i * 0.08).toFixed(2) + 's');
-      row.appendChild(die);
-    });
+    rolls.forEach((v, i) => row.appendChild(buildDefDie(v, hero, i, rolls.length)));
 
     const label = document.createElement('div');
     const blocked = rolls.filter(v => v >= 4).length;
@@ -422,17 +420,10 @@ const UI = (function () {
     $('#def-incoming').textContent = dmg;
     $('#def-pierce').hidden = !ability.undefendable;
 
-    // Render rolled defense dice (with green/fail styling)
+    // Render rolled defense dice (with green/fail styling and hero faces)
     const diceRow = $('#def-dice-row');
     diceRow.innerHTML = '';
-    rolls.forEach((v, i) => {
-      const die = document.createElement('div');
-      die.className = 'def-die ' + (v >= 4 ? 'block' : 'fail');
-      die.textContent = v;
-      die.style.setProperty('--def-delay', (i * 0.07).toFixed(2) + 's');
-      die.style.setProperty('--def-pulse-delay', (0.5 + i * 0.07).toFixed(2) + 's');
-      diceRow.appendChild(die);
-    });
+    rolls.forEach((v, i) => diceRow.appendChild(buildDefDie(v, defender.hero, i, rolls.length)));
 
     // Render defensive options — Brace + any combo-matched hero defenses
     const opts = $('#def-options');
