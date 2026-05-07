@@ -702,6 +702,206 @@ html, body {
 .status-pip.charge { background: rgba(255,204,77,0.28); border-color: rgba(255,204,77,0.65); color: #ffe28a; }
 .status-pip.dodge  { background: rgba(168,85,247,0.28); border-color: rgba(168,85,247,0.6);  color: #d8b8ff; }
 .status-pip.mark   { background: rgba(255,80,80,0.25);  border-color: rgba(255,100,100,0.55); color: #ffaaaa; }
+.status-pip.bleed  { background: rgba(220,38,38,0.25);  border-color: rgba(248,113,113,0.55); color: #ff9b9b; }
+.status-pip.shield { background: rgba(56,189,248,0.28); border-color: rgba(125,211,252,0.6); color: #b9e8ff; }
+.status-pip.evasive{ background: rgba(168,85,247,0.32); border-color: rgba(216,180,254,0.65); color: #ead4ff; }
+.status-pip.stun   { background: rgba(250,204,21,0.32); border-color: rgba(253,224,71,0.7);  color: #fff0a3; }
+
+/* ===== Hand of cards ===== */
+.hand-section {
+  margin-top: 10px;
+  padding: 8px 4px 4px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.35));
+}
+.hand-section.empty .hand-row { min-height: 8px; }
+.hand-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 6px 6px;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.hand-header .hand-title { color: var(--ink); font-weight: 800; letter-spacing: 0.16em; }
+.hand-header .hand-meta {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: var(--gold);
+}
+.hand-header .hand-hint {
+  margin-left: auto;
+  font-size: 0.62rem;
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--ink-mute);
+  opacity: 0.7;
+}
+.hand-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 4px 8px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+.hand-row::-webkit-scrollbar { height: 6px; }
+.hand-row::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+
+.card {
+  --card-tint: rgba(139, 92, 246, 0.6);
+  position: relative;
+  flex: 0 0 auto;
+  width: 132px;
+  min-height: 168px;
+  border-radius: 12px;
+  padding: 8px 8px 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background:
+    linear-gradient(180deg, rgba(15,8,30,0.98), rgba(8,4,18,0.98)),
+    radial-gradient(circle at 30% 0%, var(--card-tint), transparent 70%);
+  background-blend-mode: lighten;
+  color: var(--ink);
+  text-align: left;
+  font: inherit;
+  cursor: not-allowed;
+  scroll-snap-align: start;
+  transition: transform 0.18s cubic-bezier(.36,.07,.19,1.4),
+              box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+  opacity: 0.85;
+  display: flex;
+  flex-direction: column;
+}
+.card.affordable { opacity: 1; }
+.card.playable {
+  cursor: pointer;
+  border-color: var(--gold);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 14px rgba(255,204,77,0.45),
+              inset 0 1px 0 rgba(255,255,255,0.1);
+  animation: cardGlow 2.4s ease-in-out infinite;
+}
+@keyframes cardGlow {
+  0%, 100% { box-shadow: 0 4px 10px rgba(0,0,0,0.5), 0 0 14px rgba(255,204,77,0.45),
+              inset 0 1px 0 rgba(255,255,255,0.1); }
+  50%      { box-shadow: 0 6px 14px rgba(0,0,0,0.55), 0 0 24px rgba(255,204,77,0.75),
+              inset 0 1px 0 rgba(255,255,255,0.16); }
+}
+.card.playable:hover { transform: translateY(-4px); }
+.card.playable:active { transform: translateY(-1px) scale(0.97); }
+.card[disabled] { opacity: 0.4; }
+.card.playing { animation: cardPlay 0.5s ease forwards; }
+@keyframes cardPlay {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  40%  { transform: translateY(-30px) scale(1.15); opacity: 1;
+         box-shadow: 0 0 30px rgba(255,204,77,0.95); }
+  100% { transform: translateY(-80px) scale(0.7); opacity: 0; }
+}
+
+/* Card type tint */
+.card.card-upgrade { --card-tint: rgba(74,222,128,0.55); }
+.card.card-upgrade { border-color: rgba(74,222,128,0.45); }
+.card.card-action  { --card-tint: rgba(76,201,240,0.55); }
+.card.card-action  { border-color: rgba(76,201,240,0.4); }
+.card.card-boost   { --card-tint: rgba(255,174,43,0.55); }
+.card.card-boost   { border-color: rgba(255,174,43,0.45); }
+
+.card-cost {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #a78bfa, #6d28d9);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255,255,255,0.3);
+  box-shadow: 0 0 10px rgba(139,92,246,0.7);
+}
+.card-cost .cp-icon {
+  font-size: 0.7rem;
+  filter: drop-shadow(0 0 3px rgba(255,255,255,0.6));
+}
+.card-icon {
+  font-size: 1.8rem;
+  text-align: center;
+  margin: 4px 0 4px;
+  filter: drop-shadow(0 0 8px var(--card-tint));
+  line-height: 1;
+}
+.card-name {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+  line-height: 1.15;
+}
+.card-type {
+  text-align: center;
+  font-size: 0.55rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin: 2px 0 4px;
+}
+.card-desc {
+  font-size: 0.7rem;
+  line-height: 1.25;
+  color: var(--ink-dim);
+  flex: 1;
+}
+.card-sell {
+  position: absolute;
+  bottom: -8px;
+  right: -6px;
+  background: linear-gradient(180deg, var(--gold), var(--gold-2));
+  color: #2a1700;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.4);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.15s ease;
+}
+.card-sell:hover { transform: scale(1.08); }
+.card-sell:active { transform: scale(0.92); }
+.card[disabled] .card-sell { opacity: 0.55; cursor: default; }
+
+/* Upgraded ability star */
+.ability.upgraded {
+  border-color: rgba(74,222,128,0.6);
+  background: linear-gradient(180deg, rgba(74,222,128,0.18), rgba(34,197,94,0.05));
+}
+.ability .up-star {
+  display: inline-block;
+  margin-left: 4px;
+  color: #6cf09a;
+  font-size: 0.78rem;
+  filter: drop-shadow(0 0 4px rgba(74,222,128,0.7));
+}
+.ability .dmg small {
+  font-size: 0.55rem;
+  margin-left: 2px;
+  color: rgba(255,255,255,0.85);
+  font-weight: 800;
+  vertical-align: super;
+}
 
 /* Arena center */
 .arena {
@@ -1914,6 +2114,17 @@ html, body {
   #screen-battle .ability { padding: 10px 12px; }
   #screen-battle .ability .name { font-size: 0.95rem; }
   #screen-battle .ability .desc { font-size: 0.8rem; }
+
+  /* Hand on desktop — bigger cards, can scroll horizontally */
+  #screen-battle .hand-section { padding-bottom: 6px; }
+  #screen-battle .card {
+    width: 152px;
+    min-height: 192px;
+    padding: 10px 10px 8px;
+  }
+  #screen-battle .card-icon { font-size: 2.1rem; }
+  #screen-battle .card-name { font-size: 0.92rem; }
+  #screen-battle .card-desc { font-size: 0.78rem; }
 
   /* Player bars: bigger avatar + bolder name */
   #screen-battle .player-bar { padding: 14px 20px; gap: 14px; }

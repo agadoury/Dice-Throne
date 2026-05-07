@@ -117,7 +117,70 @@ const AI = (function () {
     return scored[0]?.d || STANDARD_DEFENSE;
   }
 
-  return { chooseLocks, shouldStopRolling, pickAbility, pickDefense };
+  /* ---- Card play strategy ----
+     Score each card the AI holds; play it if score > threshold and CP affords.
+     Returns the card index (or -1 to play nothing).
+     ---- */
+  function pickCardToPlay(self, foe) {
+    if (!self.hand || self.hand.length === 0) return -1;
+    let best = -1, bestScore = 1.5; // threshold to play at all
+    self.hand.forEach((card, idx) => {
+      if (card.cost > self.cp) return;
+      let score = 0;
+      switch (card.type) {
+        case 'upgrade':
+          score = 6; // always strong, near-permanent
+          if (self.upgrades.has(card.upgrades)) score = -1; // already upgraded
+          break;
+        case 'boost':
+          score = 2; // helpful before an attack turn
+          break;
+        case 'action':
+          // Score by id heuristics
+          if (card.id === 'bandage' && self.hp < self.hpMax * 0.5) score = 4;
+          else if (card.id === 'm-meditate' && self.hp < self.hpMax * 0.55) score = 5;
+          else if (card.id === 'shield-up' && !self.statuses.find(s => s.kind === 'shield')) score = 3;
+          else if (card.id === 'pa-divine-shield') score = 4;
+          else if (card.id === 'me-evasion' || card.id === 'st-vanish') score = 3;
+          else if (card.id === 'b-rampage' || card.id === 'me-snipe' ||
+                   card.id === 'pa-divine-strike') {
+            score = (foe.hp <= 6) ? 10 : 3.5;
+          }
+          else if (card.id === 'm-pressure') score = 4;
+          else if (card.id === 'b-bloodthirst' || card.id === 'p-firestorm' ||
+                   card.id === 'st-toxic') score = 3;
+          else if (card.id === 'p-immolate') {
+            const burn = foe.statuses.find(s => s.kind === 'burn');
+            score = burn ? 2 + burn.amount : -1;
+          }
+          else if (card.id === 'sap' && foe.cp >= 4) score = 2.5;
+          else if (card.id === 'disrupt' && foe.statuses.length >= 2) score = 3;
+          else if (card.id === 'quick-draw') score = self.hand.length <= 3 ? 2 : -1;
+          else if (card.id === 'surge') score = self.cp <= 8 ? 2 : -1;
+          else score = 1.5;
+          break;
+      }
+      if (score > bestScore) { best = idx; bestScore = score; }
+    });
+    return best;
+  }
+
+  // Decide whether the AI should sell a card (only when hand is at cap and
+  // no playable upgrade option exists — keeps things simple).
+  function pickCardToSell(self) {
+    if (!self.hand || self.hand.length <= 4) return -1;
+    if (self.cp >= self.cpMax) return -1;
+    // Sell the lowest-value action card
+    let worst = -1, worstScore = 99;
+    self.hand.forEach((card, idx) => {
+      if (card.type === 'upgrade' && !self.upgrades.has(card.upgrades)) return; // never sell unused upgrades
+      let s = card.cost;
+      if (s < worstScore) { worstScore = s; worst = idx; }
+    });
+    return worst;
+  }
+
+  return { chooseLocks, shouldStopRolling, pickAbility, pickDefense, pickCardToPlay, pickCardToSell };
 })();
 
 window.AI = AI;

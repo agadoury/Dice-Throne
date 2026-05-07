@@ -22,6 +22,8 @@
 
   // ===== Player factory =====
   const CP_MAX = 15;
+  const HAND_CAP = 6;
+  const STARTING_HAND = 4;
   function makePlayer(hero, name) {
     return {
       hero,
@@ -31,6 +33,12 @@
       cp: 0,
       cpMax: CP_MAX,
       statuses: [],
+      // Card state
+      deck: [],
+      hand: [],
+      discard: [],
+      // Set of upgraded ability names (e.g. 'Cleave')
+      upgrades: new Set(),
     };
   }
 
@@ -227,10 +235,16 @@
     Game.dice = newDiceState();
     Game.triggers = new Set();
     Game.turnNumber = 1;
-    Game.stats = { abilitiesUsed: 0, totalDamage: 0, biggestHit: 0, turnsPlayed: 0 };
-    // Reset CP at the start of each match (rematch path)
-    Game.p1.cp = 0;
-    Game.p2.cp = 0;
+    Game.stats = { abilitiesUsed: 0, totalDamage: 0, biggestHit: 0, turnsPlayed: 0, cardsPlayed: 0 };
+    // Reset CP and re-deal cards for both players on rematch
+    [Game.p1, Game.p2].forEach(p => {
+      p.cp = 0;
+      p.deck = buildDeck(p.hero.id);
+      p.hand = [];
+      p.discard = [];
+      p.upgrades = new Set();
+      drawCards(p, STARTING_HAND);
+    });
     UI.$('#combat-log').innerHTML = '';
     UI.resetHpTracking();
     UI.showOffenseZone();
@@ -238,8 +252,9 @@
     UI.updatePlayerBar('p1', Game.p1);
     UI.updatePlayerBar('p2', Game.p2);
     UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
-    UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
+    UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn(), activePlayer().upgrades);
     UI.setActiveTurn(Game.current);
+    renderActiveHand();
     UI.log(`<b>${Game.p1.name}</b> challenges <b>${Game.p2.name}</b>!`, 'crit');
     setTimeout(() => beginTurn(), 500);
   }
@@ -257,16 +272,31 @@
     UI.setActiveTurn(Game.current);
     Game.dice = newDiceState();
     UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
-    UI.renderAbilities(activePlayer().hero, new Set(), onAbilityClick, isHumanTurn());
+    UI.renderAbilities(activePlayer().hero, new Set(), onAbilityClick, isHumanTurn(), activePlayer().upgrades);
     UI.$('#rolls-left').textContent = Game.dice.rollsLeft;
     UI.$('#btn-end-turn').disabled = true;
 
-    // Income Phase — gain 1 CP (first player skips on their first turn).
+    // Income Phase — gain 1 CP + draw a card (first player skips on first turn).
     incomePhase(activePlayer());
 
-    // Apply DoT (burn, poison)
+    // Render hand for whoever is the human player (always p1 in AI mode; both
+    // in local mode we show the active player's hand).
+    renderActiveHand();
+
+    // Apply DoT (burn, poison, bleed) and stun check
     tickStatusesAtTurnStart(activePlayer());
     if (checkWinner()) return;
+
+    // If active player is stunned, auto-end the offensive phase
+    const stunned = activePlayer().statuses.find(s => s.kind === 'stun');
+    if (stunned) {
+      UI.log(`<b>${activePlayer().name}</b> is stunned and skips their attack`, 'crit');
+      stunned.amount = 0;
+      activePlayer().statuses = activePlayer().statuses.filter(s => s.kind !== 'stun');
+      UI.updatePlayerBar(playerKey(activePlayer()), activePlayer());
+      setTimeout(endTurn, 900);
+      return;
+    }
 
     GameAudio.turnStart(Game.current === 'p1');
     UI.showBanner(activePlayer().name + "'s turn");
@@ -278,48 +308,183 @@
     }
   }
 
-  // Income Phase — gain 1 CP up to the cap. The first player to act in
-  // the match skips their very first income to balance going first.
+  // Income Phase — gain 1 CP up to the cap, then draw 1 card from the deck.
+  // The first player to act in the match skips their very first income.
   function incomePhase(p) {
-    if (p === Game[Game.firstPlayerOfMatch] && !Game.incomeSkipped) {
+    const isFirstPlayerSkip = (p === Game[Game.firstPlayerOfMatch] && !Game.incomeSkipped);
+    if (isFirstPlayerSkip) {
       Game.incomeSkipped = true;
       UI.log(`<b>${p.name}</b> goes first — no income`, 'crit');
-      return;
+    } else {
+      if (p.cp < p.cpMax) {
+        p.cp = Math.min(p.cpMax, p.cp + 1);
+        UI.log(`<b>${p.name}</b> gains <span class="cp-text">+1 ◆</span>`, 'crit');
+        UI.showCpGain(playerKey(p), 1);
+        GameAudio.cpGain();
+      } else {
+        UI.log(`<b>${p.name}</b> at ◆ MAX (${p.cpMax})`);
+      }
+      // Draw one card every turn (even when CP is capped)
+      drawCards(p, 1);
     }
-    if (p.cp >= p.cpMax) {
-      UI.log(`<b>${p.name}</b> at ◆ MAX (${p.cpMax})`);
-      return;
-    }
-    p.cp = Math.min(p.cpMax, p.cp + 1);
-    UI.log(`<b>${p.name}</b> gains <span class="cp-text">+1 ◆</span>`, 'crit');
     UI.updatePlayerBar(playerKey(p), p);
-    UI.showCpGain(playerKey(p), 1);
-    GameAudio.cpGain();
   }
+
+  // Draw N cards from a player's deck, reshuffling discard if empty.
+  function drawCards(player, n) {
+    for (let i = 0; i < n; i++) {
+      if (player.deck.length === 0) {
+        if (player.discard.length === 0) return; // truly empty — stop
+        player.deck = shuffleArr(player.discard);
+        player.discard = [];
+      }
+      const card = player.deck.shift();
+      player.hand.push(card);
+    }
+  }
+
+  // Play a card from a player's hand by index. Applies effect, deducts CP,
+  // moves the card to discard (or to the upgrades set for upgrade cards).
+  function playCard(player, foe, idx) {
+    const card = player.hand[idx];
+    if (!card) return false;
+    if (player.cp < card.cost) {
+      UI.toast(`Need ◆${card.cost} to play ${card.name}`);
+      return false;
+    }
+    // Spend CP
+    player.cp -= card.cost;
+    UI.showCpSpend(playerKey(player));
+
+    // Resolve effect
+    const ctx = {};
+    if (typeof card.apply === 'function') {
+      try { card.apply(player, foe, ctx); } catch (e) { console.error(e); }
+    }
+    // Direct damage from cards (e.g. Snipe / Rampage / Divine Strike)
+    if (ctx.directDamage > 0) {
+      const dmg = ctx.directDamage;
+      const dKey = playerKey(foe);
+      // Cards bypass dice defense entirely; check shield/evasive
+      let actualDmg = dmg;
+      if (!ctx.undefendable) {
+        const evasive = foe.statuses.find(s => s.kind === 'evasive');
+        if (evasive) {
+          actualDmg = 0;
+          evasive.amount -= 1;
+          if (evasive.amount <= 0) foe.statuses = foe.statuses.filter(s => s !== evasive);
+          UI.log(`💨 <b>${foe.name}</b> evades ${card.name}!`, 'crit');
+          UI.animateDodge(dKey);
+          UI.floatNumber(dKey, 'EVADE', 'miss');
+        }
+        if (actualDmg > 0) {
+          const shield = foe.statuses.find(s => s.kind === 'shield');
+          if (shield) {
+            const blocked = Math.min(actualDmg, shield.amount);
+            actualDmg -= blocked;
+            shield.amount -= blocked;
+            if (shield.amount <= 0) foe.statuses = foe.statuses.filter(s => s !== shield);
+            UI.log(`🛡 Shield absorbs ${blocked}`, 'crit');
+          }
+        }
+      }
+      if (actualDmg > 0) {
+        foe.hp -= actualDmg;
+        UI.flashHit(dKey);
+        UI.animateRecoil(dKey);
+        UI.shakeArena(actualDmg >= 6);
+        UI.floatNumber(dKey, '-' + actualDmg, actualDmg >= 6 ? 'crit' : 'dmg');
+        if (actualDmg >= 6) GameAudio.crit(); else GameAudio.hit(actualDmg >= 4);
+        UI.log(`<b>${foe.name}</b> takes ${actualDmg} from ${card.name}`, 'foe');
+        Game.stats.totalDamage += (player === Game.p1 ? actualDmg : 0);
+        Game.stats.biggestHit = Math.max(Game.stats.biggestHit, actualDmg);
+      }
+    }
+    // Extra draw from cards like Quick Draw
+    if (ctx.drawExtra > 0) {
+      drawCards(player, ctx.drawExtra);
+    }
+
+    // Move card to its resting place
+    player.hand.splice(idx, 1);
+    if (card.type === 'upgrade' && card.upgrades) {
+      player.upgrades.add(card.upgrades);
+      UI.log(`<b>${player.name}</b> upgrades <b>${card.upgrades}</b> ★`, 'crit');
+      // Upgrade cards stay "on the hero board" — keep in upgrade pile (we just track via Set)
+    } else {
+      player.discard.push(card);
+    }
+
+    Game.stats.cardsPlayed++;
+    GameAudio.cardPlay();
+    UI.log(`<b>${player.name}</b> plays <b>${card.name}</b>`,
+      player === Game.p1 ? 'you' : 'foe');
+
+    UI.updatePlayerBar('p1', Game.p1);
+    UI.updatePlayerBar('p2', Game.p2);
+    // Re-render abilities so newly-upgraded ones show the ★ + boosted damage
+    UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick,
+      isHumanTurn(), activePlayer().upgrades);
+    return true;
+  }
+
+  // Sell a card from hand for 1 CP.
+  function sellCard(player, idx) {
+    const card = player.hand[idx];
+    if (!card) return false;
+    if (player.cp >= player.cpMax) {
+      UI.toast('CP at MAX — discard a card or play one first');
+      return false;
+    }
+    player.hand.splice(idx, 1);
+    player.discard.push(card);
+    player.cp = Math.min(player.cpMax, player.cp + 1);
+    UI.showCpGain(playerKey(player), 1);
+    GameAudio.cardSell();
+    UI.log(`<b>${player.name}</b> sells <b>${card.name}</b> for ◆1`);
+    UI.updatePlayerBar('p1', Game.p1);
+    UI.updatePlayerBar('p2', Game.p2);
+    return true;
+  }
+
+  // Enforce hand cap at end of turn — auto-sell oldest cards down to HAND_CAP.
+  function enforceHandCap(player) {
+    while (player.hand.length > HAND_CAP) {
+      const idx = 0;
+      const card = player.hand[idx];
+      player.hand.splice(idx, 1);
+      player.discard.push(card);
+      // No CP refund — these are forced discards (could give 1 CP each, but
+      // capped at cpMax, so usually wasted; keep it simple).
+      UI.log(`<b>${player.name}</b> discards <b>${card.name}</b> (hand cap)`);
+    }
+  }
+
+  // Statuses with no turn timer (don't decay each upkeep): shield, evasive.
+  const PERSISTENT_STATUSES = new Set(['shield', 'evasive']);
 
   function tickStatusesAtTurnStart(p) {
     const remaining = [];
     let tickedAny = false;
     for (const s of p.statuses) {
-      if (s.kind === 'burn') {
+      // Apply DoT damage at the top of the turn
+      if (s.kind === 'burn' || s.kind === 'poison' || s.kind === 'bleed') {
         const dmg = s.amount;
         p.hp -= dmg;
-        UI.log(`<b>${p.name}</b> takes ${dmg} burn 🔥`);
-        UI.floatNumber(playerKey(p), '🔥' + dmg, 'dmg');
-        UI.flashHit(playerKey(p));
-        GameAudio.status();
-        tickedAny = true;
-      } else if (s.kind === 'poison') {
-        const dmg = s.amount;
-        p.hp -= dmg;
-        UI.log(`<b>${p.name}</b> takes ${dmg} poison ☠`);
-        UI.floatNumber(playerKey(p), '☠' + dmg, 'dmg');
+        const icon = s.kind === 'burn' ? '🔥' : s.kind === 'poison' ? '☠' : '🩸';
+        UI.log(`<b>${p.name}</b> takes ${dmg} ${s.kind} ${icon}`);
+        UI.floatNumber(playerKey(p), icon + dmg, 'dmg');
         UI.flashHit(playerKey(p));
         GameAudio.status();
         tickedAny = true;
       }
-      s.turns -= 1;
-      if (s.turns > 0) remaining.push(s);
+      // Persistent statuses skip the timer decay
+      if (PERSISTENT_STATUSES.has(s.kind)) {
+        if (s.amount > 0) remaining.push(s);
+      } else {
+        s.turns -= 1;
+        if (s.turns > 0) remaining.push(s);
+      }
     }
     p.statuses = remaining;
     UI.updatePlayerBar(playerKey(p), p);
@@ -353,7 +518,7 @@
     setTimeout(() => GameAudio.diceLand(), 600);
     Game.triggers = detectCombos(Game.dice.values);
     UI.$('#rolls-left').textContent = Game.dice.rollsLeft;
-    UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
+    UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn(), activePlayer().upgrades);
     UI.$('#btn-end-turn').disabled = false;
     if (Game.dice.rollsLeft === 0) {
       UI.toast('No rolls left — choose an ability or end turn');
@@ -420,6 +585,11 @@
     }
 
     let dmg = (ability.dmg || 0) + (ctx.bonusDamage || 0);
+    // Hero ability upgrade bonus (Mighty Cleave / Bigger Fireball / etc — +2 dmg)
+    if (dmg > 0 && attacker.upgrades && attacker.upgrades.has(ability.name)) {
+      dmg += 2;
+      UI.log(`★ <b>${ability.name}</b> upgraded — +2 dmg`, 'crit');
+    }
 
     // Charge bonus
     const charge = attacker.statuses.find(s => s.kind === 'charge');
@@ -437,27 +607,48 @@
       defender.statuses = defender.statuses.filter(s => s.kind !== 'mark');
     }
 
-    // Defense — split into passive resolution (dodge/guard) then chosen defense
+    // Defense — passive resolution (evasive → dodge → guard/shield) then chosen defense
     let dodged = false;
     let guardAbsorbed = 0;
+    let shieldAbsorbed = 0;
     if (dmg > 0) {
-      const dodge = defender.statuses.find(s => s.kind === 'dodge');
-      if (dodge && Math.random() < 0.5) {
-        UI.log(`💨 <b>${defender.name}</b> dodges!`, 'crit');
-        defender.statuses = defender.statuses.filter(s => s.kind !== 'dodge');
+      // Evasive — guaranteed dodge, single charge (cards or defensive abilities grant it)
+      const evasive = defender.statuses.find(s => s.kind === 'evasive');
+      if (evasive) {
+        UI.log(`💨 <b>${defender.name}</b> evades — Evasive consumed`, 'crit');
+        evasive.amount -= 1;
+        if (evasive.amount <= 0) defender.statuses = defender.statuses.filter(s => s !== evasive);
         dodged = true;
         dmg = 0;
-      } else if (!ability.undefendable) {
-        const guard = defender.statuses.find(s => s.kind === 'guard');
-        if (guard) {
-          guardAbsorbed = Math.min(dmg, guard.amount);
-          dmg -= guardAbsorbed;
-          guard.amount -= guardAbsorbed;
-          if (guard.amount <= 0) defender.statuses = defender.statuses.filter(s => s !== guard);
-          UI.log(`🛡 Guard absorbs ${guardAbsorbed}`, 'crit');
-        }
       } else {
-        UI.log(`✦ Undefendable!`, 'crit');
+        const dodge = defender.statuses.find(s => s.kind === 'dodge');
+        if (dodge && Math.random() < 0.5) {
+          UI.log(`💨 <b>${defender.name}</b> dodges!`, 'crit');
+          defender.statuses = defender.statuses.filter(s => s.kind !== 'dodge');
+          dodged = true;
+          dmg = 0;
+        } else if (!ability.undefendable) {
+          // Shield absorbs first (flat block, persistent)
+          const shield = defender.statuses.find(s => s.kind === 'shield');
+          if (shield) {
+            shieldAbsorbed = Math.min(dmg, shield.amount);
+            dmg -= shieldAbsorbed;
+            shield.amount -= shieldAbsorbed;
+            if (shield.amount <= 0) defender.statuses = defender.statuses.filter(s => s !== shield);
+            UI.log(`🛡 Shield absorbs ${shieldAbsorbed}`, 'crit');
+          }
+          // Then Guard (timed)
+          const guard = defender.statuses.find(s => s.kind === 'guard');
+          if (guard && dmg > 0) {
+            guardAbsorbed = Math.min(dmg, guard.amount);
+            dmg -= guardAbsorbed;
+            guard.amount -= guardAbsorbed;
+            if (guard.amount <= 0) defender.statuses = defender.statuses.filter(s => s !== guard);
+            UI.log(`🛡 Guard absorbs ${guardAbsorbed}`, 'crit');
+          }
+        } else {
+          UI.log(`✦ Undefendable!`, 'crit');
+        }
       }
     }
 
@@ -584,7 +775,7 @@
 
         Game.dice.rollsLeft = 0;
         Game.triggers = new Set();
-        UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn());
+        UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, isHumanTurn(), activePlayer().upgrades);
         UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
         UI.$('#rolls-left').textContent = 0;
         setTimeout(endTurn, 1000);
@@ -595,6 +786,35 @@
   function isHumanFor(player) {
     if (Game.mode === 'local') return true;
     return player === Game.p1;
+  }
+
+  // Render the hand for the active player, but only when it belongs to the human.
+  function renderActiveHand() {
+    const handOwner = (Game.mode === 'local')
+      ? activePlayer()
+      : Game.p1;
+    UI.renderHand(handOwner, {
+      isYourTurn: handOwner === activePlayer() && isHumanTurn() && !Game.over,
+      onPlay: (idx) => onCardPlay(handOwner, idx),
+      onSell: (idx) => onCardSell(handOwner, idx),
+    });
+  }
+
+  function onCardPlay(player, idx) {
+    if (Game.over) return;
+    if (player !== activePlayer()) return;
+    const foe = (player === Game.p1) ? Game.p2 : Game.p1;
+    UI.flashCardPlay(idx);
+    const ok = playCard(player, foe, idx);
+    if (!ok) return;
+    renderActiveHand();
+    if (checkWinner()) return;
+  }
+
+  function onCardSell(player, idx) {
+    if (Game.over) return;
+    if (player !== activePlayer()) return;
+    if (sellCard(player, idx)) renderActiveHand();
   }
 
   /* ============================================================
@@ -683,6 +903,8 @@
   // ===== End turn =====
   function endTurn() {
     if (Game.over) return;
+    // Discard Phase — auto-cull down to hand cap
+    enforceHandCap(activePlayer());
     Game.stats.turnsPlayed++;
     Game.current = Game.current === 'p1' ? 'p2' : 'p1';
     Game.turnNumber++;
@@ -695,6 +917,8 @@
   function aiTakeTurn() {
     if (Game.over) return;
     const hero = activePlayer().hero;
+    // Play one affordable card first (high-value upgrade / heal / strike)
+    aiPlayCardsLoop(0);
 
     function rollStep() {
       if (Game.over) return;
@@ -705,7 +929,7 @@
         UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
         UI.animateDiceRoll(Game.dice);
         Game.triggers = detectCombos(Game.dice.values);
-        UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, false);
+        UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, false, activePlayer().upgrades);
         UI.$('#rolls-left').textContent = Game.dice.rollsLeft;
         setTimeout(() => GameAudio.diceLand(), 500);
         setTimeout(rollStep, 1100);
@@ -729,14 +953,38 @@
         UI.renderDiceTray(Game.dice, { canLock: false, hero: activePlayer().hero });
         UI.animateDiceRoll(Game.dice);
         Game.triggers = detectCombos(Game.dice.values);
-        UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, false);
+        UI.renderAbilities(activePlayer().hero, Game.triggers, onAbilityClick, false, activePlayer().upgrades);
         UI.$('#rolls-left').textContent = Game.dice.rollsLeft;
         setTimeout(() => GameAudio.diceLand(), 500);
         setTimeout(rollStep, 1100);
       }, 600);
     }
 
-    rollStep();
+    // Try to play up to N cards back-to-back, then roll dice.
+    function aiPlayCardsLoop(count) {
+      if (Game.over) return;
+      if (count >= 3) { rollStep(); return; }
+      const me = activePlayer();
+      const foe = inactivePlayer();
+      const idx = AI.pickCardToPlay(me, foe);
+      if (idx < 0) {
+        // Maybe sell down if hand is bloated
+        const sellIdx = AI.pickCardToSell(me);
+        if (sellIdx >= 0) {
+          sellCard(me, sellIdx);
+          setTimeout(() => aiPlayCardsLoop(count + 1), 380);
+          return;
+        }
+        rollStep();
+        return;
+      }
+      // Play the chosen card with a small dramatic delay
+      setTimeout(() => {
+        playCard(me, foe, idx);
+        if (checkWinner()) return;
+        setTimeout(() => aiPlayCardsLoop(count + 1), 600);
+      }, 400);
+    }
   }
 
   // ===== Game over =====

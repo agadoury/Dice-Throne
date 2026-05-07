@@ -122,6 +122,14 @@
           <button class="btn btn-end" id="btn-end-turn">End Turn</button>
         </div>
         <div class="abilities" id="abilities"></div>
+        <div class="hand-section" id="hand-section">
+          <div class="hand-header">
+            <span class="hand-title">Hand</span>
+            <span class="hand-meta"><span id="hand-count">0</span>/<span id="hand-cap">6</span></span>
+            <span class="hand-hint">Tap card to play • long-press to sell for ◆1</span>
+          </div>
+          <div class="hand-row" id="hand-row"></div>
+        </div>
       </div>
       <div class="defense-zone" id="defense-zone" hidden>
         <div class="defense-prompt">
@@ -209,7 +217,15 @@
       <h3>Defense &amp; Status</h3>
       <p>When struck, defenders auto-roll three guard dice — every <b>4+</b> blocks 1 damage. Some abilities are <b>undefendable</b>. Watch for status effects: <b>🔥 Burn</b> ticks at turn start, <b>☠ Poison</b> compounds, <b>🛡 Guard</b> reduces incoming damage, and <b>⚡ Charge</b> empowers your next strike.</p>
       <h3>Combat Points (◆ CP)</h3>
-      <p>Each turn begins with an <b>Income Phase</b>: you gain <b>+1 ◆</b> up to a cap of <b>15</b>. The player who goes first skips their first income to balance the duel. CP is the resource you'll spend on cards and ability upgrades — accumulate it, then unleash it.</p>
+      <p>Each turn begins with an <b>Income Phase</b>: you gain <b>+1 ◆</b> (max <b>15</b>) and <b>draw 1 card</b>. The player who goes first skips their first income to balance the duel. CP funds your cards and ability upgrades.</p>
+      <h3>Cards &amp; Hand</h3>
+      <p>You start with <b>4 cards</b> and may hold up to <b>6</b>. Tap a card to play (costs ◆), or long-press / right-click to <b>sell it for ◆1</b>. Three card types:</p>
+      <ul>
+        <li><b>Action</b> — immediate effect (heal, damage, draw, stun, etc).</li>
+        <li><b>Boost</b> — empowers your next attack (Charge, Dodge).</li>
+        <li><b>Upgrade ★</b> — permanently boosts one of your hero's abilities (+2 dmg). Stays on your hero board for the rest of the match.</li>
+      </ul>
+      <p>If you finish the turn over the 6-card cap, oldest cards are auto-discarded.</p>
     </div>
   </section>
 
@@ -220,6 +236,7 @@
 <script src="js/audio.js"></script>
 <script src="js/dice-icons.js"></script>
 <script src="js/heroes.js"></script>
+<script src="js/cards.js"></script>
 <script src="js/dice.js"></script>
 <script src="js/ai.js"></script>
 <script src="js/ui.js"></script>

@@ -153,9 +153,13 @@ const UI = (function () {
   const STATUS_ICON = {
     burn: '🔥',
     poison: '☠',
+    bleed: '🩸',
     guard: '🛡',
+    shield: '🛡',
     charge: '⚡',
     dodge: '💨',
+    evasive: '💨',
+    stun: '✦',
     mark: '🎯',
   };
 
@@ -166,24 +170,101 @@ const UI = (function () {
 
   /* ---- Abilities list ---- */
 
-  function renderAbilities(hero, triggers, onUse, isHumanTurn) {
+  function renderAbilities(hero, triggers, onUse, isHumanTurn, upgrades) {
     const root = $('#abilities');
     root.innerHTML = '';
     hero.abilities.forEach((a, idx) => {
       const btn = document.createElement('button');
       const can = triggers.has(a.combo) && isHumanTurn;
-      btn.className = 'ability' + (can ? ' available' : '');
+      const upgraded = upgrades && upgrades.has(a.name);
+      btn.className = 'ability' + (can ? ' available' : '') + (upgraded ? ' upgraded' : '');
       btn.disabled = !can;
-      const dmgBadge = a.dmg ? `<span class="dmg">${a.dmg}</span>` : '';
+      const effectiveDmg = a.dmg ? (a.dmg + (upgraded ? 2 : 0)) : 0;
+      const dmgBadge = a.dmg
+        ? `<span class="dmg">${effectiveDmg}${upgraded ? '<small>+2</small>' : ''}</span>`
+        : '';
       const undefBadge = a.undefendable ? `<span class="undef">PIERCE</span>` : '';
+      const upBadge = upgraded ? `<span class="up-star" title="Upgraded">★</span>` : '';
       btn.innerHTML = `
-        <div class="name"><span>${a.name}${undefBadge}</span>${dmgBadge}</div>
+        <div class="name"><span>${a.name}${upBadge}${undefBadge}</span>${dmgBadge}</div>
         <span class="combo">${COMBO_LABEL[a.combo]}</span>
         <div class="desc">${a.desc}</div>
       `;
       btn.addEventListener('click', () => { if (can) onUse(idx); });
       root.appendChild(btn);
     });
+  }
+
+  /* ---- Hand of cards ---- */
+
+  function renderHand(player, opts) {
+    const root = $('#hand-row');
+    if (!root) return;
+    const { onPlay, onSell, isYourTurn } = opts || {};
+    root.innerHTML = '';
+    $('#hand-count').textContent = player.hand.length;
+    player.hand.forEach((card, idx) => {
+      const canAfford = player.cp >= card.cost;
+      const playable = isYourTurn && canAfford;
+      const el = document.createElement('button');
+      el.className = 'card card-' + card.type + (playable ? ' playable' : '') + (canAfford ? ' affordable' : '');
+      el.disabled = !playable;
+      el.dataset.idx = idx;
+      el.innerHTML = `
+        <div class="card-cost"><span class="cp-icon">◆</span>${card.cost}</div>
+        <div class="card-icon">${card.icon || '◆'}</div>
+        <div class="card-name">${card.name}</div>
+        <div class="card-type">${cardTypeLabel(card.type)}</div>
+        <div class="card-desc">${card.desc}</div>
+        <span class="card-sell" role="button" tabindex="0" title="Sell for ◆1" data-idx="${idx}">◆+1</span>
+      `;
+      // Tap to play (if playable)
+      el.addEventListener('click', (e) => {
+        if (e.target.classList.contains('card-sell')) return;
+        if (playable && onPlay) onPlay(idx);
+      });
+      // Long-press / right-click / sell button: sell
+      const sellBtn = el.querySelector('.card-sell');
+      sellBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isYourTurn && onSell) onSell(idx);
+      });
+      // Long-press for mobile
+      let pressTimer = null;
+      el.addEventListener('touchstart', () => {
+        clearTimeout(pressTimer);
+        pressTimer = setTimeout(() => {
+          if (isYourTurn && onSell) onSell(idx);
+        }, 700);
+      }, { passive: true });
+      el.addEventListener('touchend',   () => clearTimeout(pressTimer));
+      el.addEventListener('touchmove',  () => clearTimeout(pressTimer));
+      el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (isYourTurn && onSell) onSell(idx);
+      });
+      root.appendChild(el);
+    });
+    // Hide the section entirely if hand is empty
+    $('#hand-section').classList.toggle('empty', player.hand.length === 0);
+  }
+
+  function cardTypeLabel(t) {
+    switch (t) {
+      case 'upgrade': return 'Upgrade';
+      case 'boost':   return 'Boost';
+      case 'action':  return 'Action';
+      default:        return t;
+    }
+  }
+
+  // Brief play animation: glow + scale + fade.
+  function flashCardPlay(idx) {
+    const root = $('#hand-row');
+    const card = root && root.querySelector(`[data-idx="${idx}"]`);
+    if (!card) return;
+    card.classList.add('playing');
+    setTimeout(() => card.classList.remove('playing'), 500);
   }
 
   /* ---- Combat log ----
@@ -662,7 +743,7 @@ const UI = (function () {
     shakeArena, flashVignette, impactEffect, projectile,
     showDefenseDice, showGuardAbsorb, showPierce, setGuardBadge,
     showOffenseZone, showDefenseZone, renderDefensePanel,
-    showCpGain, showCpSpend,
+    showCpGain, showCpSpend, renderHand, flashCardPlay,
   };
 })();
 

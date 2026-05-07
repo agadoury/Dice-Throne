@@ -123,6 +123,22 @@ const Audio = (function () {
     setTimeout(() => tone(1175, 0.14, 'sine', 0.08), 130);
   }
 
+  // Soft swoosh + pop — card played.
+  function cardPlay() {
+    noise(0.18, 0.12, 1800);
+    tone(440, 0.1, 'triangle', 0.12);
+    setTimeout(() => tone(660, 0.12, 'triangle', 0.1), 80);
+  }
+  // Light tap — card sold for CP.
+  function cardSell() {
+    tone(523, 0.06, 'square', 0.08);
+    tone(659, 0.06, 'square', 0.06);
+  }
+  // Paper draw — card drawn from deck.
+  function cardDraw() {
+    noise(0.1, 0.1, 2200);
+  }
+
   function turnStart(isYou) {
     const base = isYou ? 523 : 392;
     tone(base, 0.18, 'sine', 0.12);
@@ -148,7 +164,8 @@ const Audio = (function () {
 
   return {
     diceRoll, diceLand, diceLock, buttonClick, abilityCast, hit, crit,
-    heal, miss, status, turnStart, victory, defeat, cpGain,
+    heal, miss, status, turnStart, victory, defeat,
+    cpGain, cardPlay, cardSell, cardDraw,
     setMuted, isMuted, resume,
   };
 })();
