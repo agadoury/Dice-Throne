@@ -116,6 +116,13 @@ const Audio = (function () {
     setTimeout(() => tone(660, 0.06, 'triangle', 0.08), 60);
   }
 
+  // Bright shimmering chime — Combat Point gained.
+  function cpGain() {
+    tone(740, 0.08, 'sine', 0.1);
+    setTimeout(() => tone(988, 0.1, 'sine', 0.1), 60);
+    setTimeout(() => tone(1175, 0.14, 'sine', 0.08), 130);
+  }
+
   function turnStart(isYou) {
     const base = isYou ? 523 : 392;
     tone(base, 0.18, 'sine', 0.12);
@@ -141,7 +148,8 @@ const Audio = (function () {
 
   return {
     diceRoll, diceLand, diceLock, buttonClick, abilityCast, hit, crit,
-    heal, miss, status, turnStart, victory, defeat, setMuted, isMuted, resume,
+    heal, miss, status, turnStart, victory, defeat, cpGain,
+    setMuted, isMuted, resume,
   };
 })();
 

@@ -127,6 +127,14 @@ const UI = (function () {
 
     setGuardBadge(playerKey, player.statuses.some(s => s.kind === 'guard' && s.amount > 0));
 
+    // CP chip
+    const cpEl = $(prefix + '-cp');
+    if (cpEl) cpEl.textContent = player.cp;
+    const cpMaxEl = $(prefix + '-cpmax');
+    if (cpMaxEl) cpMaxEl.textContent = player.cpMax;
+    const cpChip = $(prefix + '-cp-chip');
+    if (cpChip) cpChip.classList.toggle('maxed', player.cp >= player.cpMax);
+
     const status = $(prefix + '-status');
     status.innerHTML = '';
     player.statuses.forEach(s => {
@@ -546,6 +554,42 @@ const UI = (function () {
     return die;
   }
 
+  // CP gain animation — pulses the chip and floats a marker above it.
+  function showCpGain(targetKey, amount) {
+    const root = $('#floating-fx');
+    const chip = $('#' + targetKey + '-cp-chip');
+    if (!root || !chip) return;
+    chip.classList.remove('gain');
+    void chip.offsetWidth;
+    chip.classList.add('gain');
+    setTimeout(() => chip.classList.remove('gain'), 750);
+
+    const arenaRect = $('.arena').getBoundingClientRect();
+    const cRect = chip.getBoundingClientRect();
+    const x = cRect.left + cRect.width / 2 - arenaRect.left;
+    const isOpponent = targetKey === 'p2';
+    // Anchor to the side of the arena nearest the chip
+    const y = isOpponent ? 8 : arenaRect.height - 30;
+    const el = document.createElement('div');
+    el.className = 'float-num cp';
+    el.textContent = '+' + amount + ' ◆';
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    el.style.setProperty('--drift', '0px');
+    root.appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+  }
+
+  // Briefly flash the chip when CP is spent (used by future card-play logic).
+  function showCpSpend(targetKey) {
+    const chip = $('#' + targetKey + '-cp-chip');
+    if (!chip) return;
+    chip.classList.remove('spend');
+    void chip.offsetWidth;
+    chip.classList.add('spend');
+    setTimeout(() => chip.classList.remove('spend'), 420);
+  }
+
   // Toggle the persistent guard badge on the defender's avatar.
   function setGuardBadge(targetKey, on) {
     const avatar = $('#bar-' + targetKey + ' .avatar');
@@ -618,6 +662,7 @@ const UI = (function () {
     shakeArena, flashVignette, impactEffect, projectile,
     showDefenseDice, showGuardAbsorb, showPierce, setGuardBadge,
     showOffenseZone, showDefenseZone, renderDefensePanel,
+    showCpGain, showCpSpend,
   };
 })();
 

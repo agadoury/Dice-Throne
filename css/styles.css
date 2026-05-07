@@ -571,6 +571,69 @@ html, body {
   color: var(--ink);
   font-size: 0.95rem;
 }
+
+/* ===== Combat Points (CP) chip ===== */
+.cp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(180deg, #a78bfa 0%, #6d28d9 60%, #4c1d95 100%);
+  color: #fff;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255,255,255,0.22);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35), 0 0 8px rgba(139,92,246,0.45),
+              inset 0 1px 0 rgba(255,255,255,0.3);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.18s ease, box-shadow 0.25s ease;
+}
+.cp-chip .cp-icon {
+  font-size: 0.85rem;
+  color: #f3e8ff;
+  filter: drop-shadow(0 0 3px rgba(255,255,255,0.65));
+}
+.cp-chip .cp-amount { font-size: 0.92rem; }
+.cp-chip .cp-divider {
+  opacity: 0.7;
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+.cp-chip.gain {
+  animation: cpPulse 0.7s cubic-bezier(.36,.07,.19,1.4);
+}
+.cp-chip.maxed {
+  background: linear-gradient(180deg, #ffe28a 0%, #d18a1f 60%, #7a4e0e 100%);
+  color: #2a1700;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35), 0 0 12px rgba(255,204,77,0.6),
+              inset 0 1px 0 rgba(255,255,255,0.55);
+}
+.cp-chip.maxed .cp-icon { color: #2a1700; filter: none; }
+@keyframes cpPulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.32); box-shadow: 0 0 22px rgba(167,139,250,0.95),
+            inset 0 1px 0 rgba(255,255,255,0.5); }
+  100% { transform: scale(1); }
+}
+
+/* Spending CP — brief shrink (used by future card-play logic). */
+.cp-chip.spend { animation: cpSpend 0.4s ease; }
+@keyframes cpSpend {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(0.85); filter: brightness(0.7); }
+  100% { transform: scale(1); }
+}
+
+/* Floating "+1 ◆" gain marker */
+.float-num.cp {
+  color: #d8b8ff;
+  filter: drop-shadow(0 0 8px rgba(167,139,250,0.7));
+  -webkit-text-stroke: 2px rgba(20,10,40,0.85);
+  font-size: 1.6rem;
+}
 .hp-bar {
   height: 14px;
   background: rgba(0,0,0,0.7);

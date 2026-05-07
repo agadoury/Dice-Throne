@@ -21,12 +21,15 @@
   };
 
   // ===== Player factory =====
+  const CP_MAX = 15;
   function makePlayer(hero, name) {
     return {
       hero,
       name,
       hp: hero.hp,
       hpMax: hero.hp,
+      cp: 0,
+      cpMax: CP_MAX,
       statuses: [],
     };
   }
@@ -219,10 +222,15 @@
     Game.over = false;
     Game.aiBusy = false;
     Game.current = Math.random() < 0.5 ? 'p1' : 'p2';
+    Game.firstPlayerOfMatch = Game.current;
+    Game.incomeSkipped = false;
     Game.dice = newDiceState();
     Game.triggers = new Set();
     Game.turnNumber = 1;
     Game.stats = { abilitiesUsed: 0, totalDamage: 0, biggestHit: 0, turnsPlayed: 0 };
+    // Reset CP at the start of each match (rematch path)
+    Game.p1.cp = 0;
+    Game.p2.cp = 0;
     UI.$('#combat-log').innerHTML = '';
     UI.resetHpTracking();
     UI.showOffenseZone();
@@ -253,6 +261,9 @@
     UI.$('#rolls-left').textContent = Game.dice.rollsLeft;
     UI.$('#btn-end-turn').disabled = true;
 
+    // Income Phase — gain 1 CP (first player skips on their first turn).
+    incomePhase(activePlayer());
+
     // Apply DoT (burn, poison)
     tickStatusesAtTurnStart(activePlayer());
     if (checkWinner()) return;
@@ -265,6 +276,25 @@
       Game.aiBusy = true;
       setTimeout(aiTakeTurn, 900);
     }
+  }
+
+  // Income Phase — gain 1 CP up to the cap. The first player to act in
+  // the match skips their very first income to balance going first.
+  function incomePhase(p) {
+    if (p === Game[Game.firstPlayerOfMatch] && !Game.incomeSkipped) {
+      Game.incomeSkipped = true;
+      UI.log(`<b>${p.name}</b> goes first — no income`, 'crit');
+      return;
+    }
+    if (p.cp >= p.cpMax) {
+      UI.log(`<b>${p.name}</b> at ◆ MAX (${p.cpMax})`);
+      return;
+    }
+    p.cp = Math.min(p.cpMax, p.cp + 1);
+    UI.log(`<b>${p.name}</b> gains <span class="cp-text">+1 ◆</span>`, 'crit');
+    UI.updatePlayerBar(playerKey(p), p);
+    UI.showCpGain(playerKey(p), 1);
+    GameAudio.cpGain();
   }
 
   function tickStatusesAtTurnStart(p) {
@@ -734,6 +764,7 @@
       <div>Abilities used <b>${Game.stats.abilitiesUsed}</b></div>
       <div>Total damage dealt <b>${Game.stats.totalDamage}</b></div>
       <div>Biggest hit <b>${Game.stats.biggestHit}</b></div>
+      <div>Final ◆ CP <b>${(youWin ? Game.p1.cp : Game.p2.cp)}/15</b></div>
     `;
     UI.showScreen('screen-end');
     if (youWin) { GameAudio.victory(); UI.spawnConfetti(); }
